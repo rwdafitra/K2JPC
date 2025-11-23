@@ -1,15 +1,12 @@
 const express = require("express");
-const path = require("path");
-
+const PouchDB = require("pouchdb");
 const app = express();
+const port = process.env.PORT || 3000;
 
-// Serve static files from public folder
-app.use(express.static(path.join(__dirname, "public")));
-
-// Fallback to index.html for SPA routing
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+app.get("/", (req, res) => {
+  res.send("K3 JPC App Running 🚧");
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server running on port ${port}`));
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
