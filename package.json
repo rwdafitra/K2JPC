@@ -1,14 +1,12 @@
 {
-  "name": "k3-jpc-web",
+  "name": "k3.jpc",
   "version": "1.0.0",
-  "description": "Dashboard Inspeksi K3 PT JPC",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "express": "^4.21.0"
+    "express": "^4.19.2",
+    "pouchdb": "^8.0.1"
   }
 }
