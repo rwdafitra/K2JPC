@@ -6,7 +6,8 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.21.0",
-    "pouchdb": "^8.0.1"
+  "express": "^4.21.0",
+    "pouchdb": "^8.0.1",
+    "pouchdb-find": "^8.0.1"    
   }
 }
