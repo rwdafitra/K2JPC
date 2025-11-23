@@ -1,14 +1,12 @@
 {
   "name": "k3-jpc-web",
   "version": "1.0.0",
-  "description": "Dashboard Inspeksi K3 PT JPC",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.21.0",
-    "pouchdb": "^8.0.1",
-    "pouchdb-adapter-node": "^8.0.1"
+    "pouchdb": "^8.0.1"
   }
 }
