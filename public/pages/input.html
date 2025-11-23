@@ -1,0 +1,33 @@
+<div class="card">
+  <div class="card-header"><strong>Form Inspeksi (Hybrid)</strong></div>
+  <div class="card-body">
+    <form id="formHybrid">
+      <div class="row mb-2">
+        <div class="col-md-4"><label class="form-label">Inspector</label><input id="f_inspector" class="form-control form-control-sm"></div>
+        <div class="col-md-4"><label class="form-label">Lokasi</label>
+          <select id="f_location" class="form-select form-select-sm"><option>PIT A</option><option>PIT B</option><option>Workshop</option><option>ROM</option></select>
+        </div>
+        <div class="col-md-4"><label class="form-label">Jenis Kegiatan</label><select id="f_activity" class="form-select form-select-sm"><option>Rutin</option><option>Near Miss</option><option>Audit</option></select></div>
+      </div>
+      <div class="row mb-2">
+        <div class="col-md-3"><label class="form-label">Severity</label><input id="f_sev" type="number" min="1" max="5" value="2" class="form-control form-control-sm"></div>
+        <div class="col-md-3"><label class="form-label">Likelihood</label><input id="f_like" type="number" min="1" max="5" value="2" class="form-control form-control-sm"></div>
+        <div class="col-md-3"><label class="form-label">Risk Score</label><input id="f_risk" readonly class="form-control form-control-sm"></div>
+        <div class="col-md-3"><label class="form-label">GPS (opsional)</label><input id="f_gps" class="form-control form-control-sm"></div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Foto (max 4)</label>
+        <input id="f_photos" type="file" accept="image/*" multiple class="form-control form-control-sm">
+        <div id="photoPreview" class="mt-2 d-flex flex-wrap"></div>
+      </div>
+
+      <hr>
+      <div id="stdChecklist"></div>
+
+      <div class="mt-3">
+        <button id="saveLocal" class="btn btn-primary">Simpan (lokal)</button>
+      </div>
+    </form>
+  </div>
+</div>
