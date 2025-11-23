@@ -1,0 +1,6 @@
+[build]
+builder = "NIXPACKS"
+
+[phases.setup]
+# Hentikan npm ci, pakai npm install biasa
+cmds = ["npm install"]
