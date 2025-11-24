@@ -7,19 +7,17 @@ const app = express();
 // --- KONFIGURASI MIDDLEWARE ---
 app.use(express.json()); // Middleware untuk parsing body JSON
 
-// PERBAIKAN PENTING: Melayani semua file PWA dari folder 'public'
+// Melayani semua file PWA dari folder 'public'
 app.use(express.static(path.join(__dirname, 'public'))); 
 
 // --- KONFIGURASI DATABASE COUCHDB (DI SISI SERVER YANG AMAN) ---
 
 PouchDB.plugin(require("pouchdb-find"));
 
-// Daftar variabel lingkungan yang mungkin mengandung URL CouchDB
-// Mencakup nama variabel Anda (inspeksi_k3)
+// Daftar variabel lingkungan yang mungkin mengandung URL CouchDB (termasuk 'inspeksi_k3')
 const ENV_VARS = ['COUCHDB_URL', 'DATABASE_URL', 'INSPEKSI_K3', 'inspeksi_k3'];
 let COUCHDB_URL_BASE;
 
-// Cari URL CouchDB di semua kemungkinan nama variabel
 for (const envName of ENV_VARS) {
     if (process.env[envName]) {
         COUCHDB_URL_BASE = process.env[envName];
@@ -28,7 +26,6 @@ for (const envName of ENV_VARS) {
     }
 }
 
-// PERBAIKAN: Nama DB disesuaikan dengan konfirmasi Anda
 const DB_NAME = "inspeksi_k3"; 
 
 if (!COUCHDB_URL_BASE) {
@@ -36,20 +33,20 @@ if (!COUCHDB_URL_BASE) {
   throw new Error("Koneksi CouchDB gagal. Cek variabel lingkungan di Railway.");
 }
 
-// Inisialisasi PouchDB server-side untuk koneksi ke CouchDB permanen
-const db = new PouchDB(COUCHDB_URL_BASE + DB_NAME);
+// PERBAIKAN URL KONKARENASI: Pastikan ada '/' di antara base URL dan DB Name
+const db = new PouchDB(COUCHDB_URL_BASE + '/' + DB_NAME); 
 
 // Pastikan index untuk 'type' tersedia di CouchDB
 db.createIndex({ index: { fields: ['type', 'created_at'] } }).catch(err => console.error("Gagal membuat index CouchDB:", err));
 db.info().then(info => console.log(`✅ Terhubung ke DB: ${info.db_name}. Dokumen: ${info.doc_count}`)).catch(err => console.error("🚨 GAGAL TERHUBUNG KE COUCHDB:", err.message));
 
 
-// --- API ENDPOINTS ---
+// --- API ENDPOINTS (PUSH & PULL) ---
 
 // POST: Menerima data inspeksi dari klien (PUSH)
 app.post("/api/inspeksi", async (req, res) => {
   let doc = { ...req.body };
-  delete doc._rev; // Penting untuk mencegah konflik di CouchDB
+  delete doc._rev;
   
   try {
     const response = await db.put(doc);
@@ -75,9 +72,8 @@ app.get("/api/inspeksi", async (req, res) => {
   }
 });
 
-// GET: Route fallback untuk melayani index.html (untuk routing PWA)
+// GET: Route fallback untuk melayani index.html
 app.get("/*", (req, res) => {
-  // PERBAIKAN PENTING: index.html ada di folder 'public'
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
