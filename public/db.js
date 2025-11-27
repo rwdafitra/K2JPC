@@ -1,38 +1,44 @@
-// db.js - initialize local PouchDB and export helpers (VERSI AMAN FINAL)
-const DB_NAME = 'inspeksi_k3'; // Nama DB Lokal disesuaikan
+// db.js - initialize local PouchDB and export helpers (VERSI FINAL)
+const DB_NAME = 'inspeksi_k3'; 
 const db = new PouchDB(DB_NAME);
 
-// API URL untuk PUSH/PULL data melalui server Express
 const API_URL = '/api/inspeksi'; 
 
-// FUNGSI configureRemote dan startLiveSync DIHAPUS
-
 /**
- * Save inspection document (with optional attachments)
- * @param {object} doc - inspection doc
- * @param {array} attachments - [{type: 'image/jpeg', blob: Blob}]
+ * Save inspection document (with attachments)
  */
-async function saveInspection(doc, attachments = []) {
-  // Jika dokumen baru, tambahkan _id dan created_at
+async function saveInspection(doc, files = []) {
   if (!doc._id) {
     doc._id = 'ins_' + Date.now();
     doc.created_at = new Date().toISOString();
   }
   doc.type = 'inspection';
-  doc.synced = false; // <<< PENTING: Dokumen baru ditandai belum sync
+  doc.synced = false; 
+  // Pastikan field untuk komentar sudah ada (walaupun kosong)
+  doc.actions = doc.actions || []; 
+  
+  const attachments = {};
+
+  // Convert files to PouchDB attachment format (base64)
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result.split(',')[1]); 
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+    });
+
+    attachments[`photo_${i}_${file.name.substring(0, 10)}`] = {
+        content_type: file.type,
+        data: base64Data
+    };
+  }
+
+  doc._attachments = attachments;
 
   try {
     const res = await db.put(doc);
-    
-    // add attachments (logic for attachments remains here)
-    for (let i = 0; i < attachments.length; i++) {
-      const att = attachments[i];
-      // Perlu mendapatkan rev terbaru jika ada konflik putAttachment
-      await db.putAttachment(doc._id, `photo_${i}`, res.rev, att.type, att.blob).catch(async (e) => {
-        const latest = await db.get(doc._id);
-        await db.putAttachment(doc._id, `photo_${i}`, latest._rev, att.type, att.blob);
-      });
-    }
     return res;
   } catch (e) {
     throw e;
@@ -40,17 +46,40 @@ async function saveInspection(doc, attachments = []) {
 }
 
 /**
+ * Update existing inspection document (untuk komentar/status)
+ */
+async function updateInspection(docId, updateData) {
+    const doc = await db.get(docId);
+    
+    // Gabungkan data yang diupdate dengan dokumen lama
+    const updatedDoc = {
+        ...doc,
+        ...updateData,
+        _rev: doc._rev,
+        synced: false // Tandai sebagai belum sync setelah diupdate
+    };
+    
+    return db.put(updatedDoc);
+}
+
+/**
+ * Get single inspection document
+ */
+async function getInspection(docId) {
+    return db.get(docId);
+}
+
+/**
  * List inspection documents (menggunakan pouchdb-find)
- * @param {number} limit - number of docs
  */
 async function listInspections(limit = 100) {
   try {
     const found = await db.find({ selector: { type: 'inspection' }, sort: [{ created_at: 'desc' }], limit });
     return found.docs;
   } catch (e) {
-    // fallback jika index belum siap
+    // Fallback jika index gagal
     const all = await db.allDocs({ include_docs: true, descending: true });
-    return all.rows.map(r => r.doc).filter(d => d.type === 'inspection').slice(0, limit);
+    return all.rows.map(r => r.doc).filter(d => d.type === 'inspection').sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, limit);
   }
 }
 
@@ -58,6 +87,8 @@ async function listInspections(limit = 100) {
 window._k3db = {
   db,
   saveInspection,
+  getInspection,
+  updateInspection, // <-- FUNGSI BARU
   listInspections,
   API_URL
 };

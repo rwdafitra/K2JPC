@@ -1,7 +1,24 @@
-<div class="card mb-3 shadow-sm">
-  <div class="card-header"><strong>Manajemen Users (Belum Aktif)</strong></div>
+<div class="card shadow-sm">
+  <div class="card-header bg-white border-bottom">
+    <i class="bi bi-people me-2"></i>
+    <strong>Daftar & Status User (MOCK)</strong>
+  </div>
   <div class="card-body">
-    <div id="usersContent">
-        </div>
+    <div id="userAlert"></div>
+    <div class="table-responsive">
+        <table class="table table-striped table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Nama User</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+                <tr><td colspan="4" class="text-center">Memuat daftar user...</td></tr>
+            </tbody>
+        </table>
+    </div>
   </div>
 </div>
