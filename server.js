@@ -12,20 +12,36 @@ app.use(express.static(path.join(__dirname))); // Melayani semua file PWA dari r
 // --- KONFIGURASI DATABASE COUCHDB ---
 PouchDB.plugin(require("pouchdb-find"));
 
-// Ambil URL CouchDB dari Environment Variables
-const COUCHDB_URL_BASE = process.env.COUCHDB_URL || process.env.DATABASE_URL || process.env.INSPEKSI_K3;
+// Daftar variabel lingkungan yang mungkin mengandung URL CouchDB (Diperluas)
+const ENV_VARS = ['COUCHDB_URL', 'DATABASE_URL', 'INSPEKSI_K3', 'inspeksi_k3', 'DB_URL'];
+let COUCHDB_URL_BASE;
+
+// Cari URL koneksi dari variabel lingkungan
+for (const envName of ENV_VARS) {
+    if (process.env[envName]) {
+        COUCHDB_URL_BASE = process.env[envName];
+        console.log(`✅ Menggunakan variabel lingkungan: ${envName}`);
+        break;
+    }
+}
+
 const DB_NAME = "inspeksi_k3"; 
 if (!COUCHDB_URL_BASE) {
     console.error("FATAL: Variabel lingkungan CouchDB tidak ditemukan!");
     throw new Error("Koneksi CouchDB gagal.");
 }
-const couchdbUrl = COUCHDB_URL_BASE.endsWith('/') 
-    ? COUCHDB_URL_BASE + DB_NAME 
-    : COUCHDB_URL_BASE + '/' + DB_NAME;
 
-const db = new PouchDB(couchdbUrl);
+// **PERBAIKAN KRITIS UNTUK URL KONEKSI**
+// 1. Hapus trailing slash (/) dari URL base
+let connectionUrl = COUCHDB_URL_BASE.replace(/\/$/, ''); 
+// 2. Jika nama database belum ada di ujung URL, tambahkan.
+if (!connectionUrl.endsWith('/' + DB_NAME)) {
+    connectionUrl = connectionUrl + '/' + DB_NAME;
+}
+
+const db = new PouchDB(connectionUrl);
 db.createIndex({ index: { fields: ['type', 'created_at'] } }).catch(err => console.error("Gagal membuat index CouchDB:", err));
-db.info().then(info => console.log(`✅ Terhubung ke DB: ${info.db_name}.`)).catch(err => console.error("🚨 GAGAL TERHUBUNG KE COUCHDB:", err.message));
+db.info().then(info => console.log(`✅ Terhubung ke DB: ${info.db_name}. Dokumen: ${info.doc_count}`)).catch(err => console.error("🚨 GAGAL TERHUBUNG KE COUCHDB:", err.message));
 
 
 // --- API ENDPOINTS ---
@@ -33,7 +49,7 @@ db.info().then(info => console.log(`✅ Terhubung ke DB: ${info.db_name}.`)).cat
 // POST: Menerima data inspeksi baru (PUSH)
 app.post("/api/inspeksi", async (req, res) => {
   let doc = { ...req.body };
-  delete doc._rev; // Penting untuk dokumen baru
+  delete doc._rev; 
   if (!doc._id) doc._id = "ins_" + Date.now();
   
   try {
