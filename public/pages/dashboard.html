@@ -1,40 +1,104 @@
-<div id="dashboardAlert"></div>
+<!-- pages/dashboard.html -->
+<div class="container">
+  <div class="row mb-3">
+    <div class="col-md-8">
+      <h4>Dashboard</h4>
+      <p class="text-muted small">Ringkasan Inspeksi Terencana Minerba</p>
+    </div>
+    <div class="col-md-4 text-end">
+      <small class="text-muted">Last sync: <span id="lastSyncDisplay">-</span></small>
+    </div>
+  </div>
 
-<div class="row mb-3">
-  <div class="col-md-3 col-6 mb-2">
-    <div class="card p-3 shadow-sm">
-      <h6>Total Inspeksi</h6>
-      <h3 id="kt-total">0</h3>
-      <div class="small text-muted">Update terakhir: <span id="lastSync">-</span></div>
+  <div class="row g-3">
+    <div class="col-sm-6 col-md-3">
+      <div class="card p-3">
+        <div class="small text-muted">Total Inspeksi</div>
+        <div class="h3" id="kt-total">0</div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+      <div class="card p-3">
+        <div class="small text-muted">Open</div>
+        <div class="h3" id="kt-open">0</div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+      <div class="card p-3">
+        <div class="small text-muted">Closed</div>
+        <div class="h3" id="kt-closed">0</div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+      <div class="card p-3">
+        <div class="small text-muted">Critical (Risk ≥ 15)</div>
+        <div class="h3 text-danger" id="kt-critical">0</div>
+      </div>
     </div>
   </div>
-  <div class="col-md-3 col-6 mb-2">
-    <div class="card p-3 shadow-sm" style="border-left:6px solid #ffc107">
-      <h6>Open</h6>
-      <h3 id="kt-open">0</h3>
-    </div>
-  </div>
-  <div class="col-md-3 col-6 mb-2">
-    <div class="card p-3 shadow-sm" style="border-left:6px solid #198754">
-      <h6>Closed</h6>
-      <h3 id="kt-closed">0</h3>
-    </div>
-  </div>
-  <div class="col-md-3 col-6 mb-2">
-    <div class="card p-3 shadow-sm" style="border-left:6px solid #dc3545">
-      <h6>Critical (Risk ≥ 15)</h6>
-      <h3 id="kt-critical">0</h3>
-    </div>
-  </div>
-</div>
 
-<div class="card mb-3">
-  <div class="card-body">
-    <div class="row">
-      <div class="col-md-12">
-        <h6>Data Terkini (5 Terbaru)</h6>
-        <p class="small text-muted">Akan diisi dengan data rekap 5 terbaru.</p>
+  <div class="mt-4">
+    <div id="dashboardAlert"></div>
+  </div>
+
+  <div class="mt-4 card">
+    <div class="card-header">
+      Ringkasan 10 Inspeksi Terbaru
+      <div class="float-end">
+        <button class="btn btn-sm btn-outline-primary" onclick="router.navigateTo('rekap')"><i class="bi bi-list"></i> Lihat Semua</button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Tanggal</th>
+              <th>Inspector</th>
+              <th>Lokasi</th>
+              <th>Uraian</th>
+              <th>Risk</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="dashboardRecent">
+            <!-- akan diisi oleh main.js (initDashboard memanggil listInspections) -->
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+  // Render snippet recent rows (dipanggil oleh main.initDashboard via listInspections)
+  async function renderDashboardRecent() {
+    if (!window._k3db || !window._k3db.listInspections) return;
+    try {
+      const docs = await window._k3db.listInspections(10);
+      const rows = docs.slice(0,10).map(doc => `
+        <tr>
+          <td>${doc.tanggal_inspeksi || '-'}</td>
+          <td>${doc.inspector || '-'}</td>
+          <td>${(doc.lokasi || '-') + ' / ' + (doc.area || '-')}</td>
+          <td>${(doc.uraian_temuan || '').substring(0,60)}${(doc.uraian_temuan||'').length>60?'...':''}</td>
+          <td>${doc.risk_category || '-'} (${doc.risk_score || 0})</td>
+          <td><span class="badge bg-${doc.status==='Open'?'warning':'success'}">${doc.status||'-'}</span></td>
+          <td>
+            <button class="btn btn-sm btn-info" onclick="router.navigateTo('detail',{id:'${doc._id}'})"><i class="bi bi-eye"></i></button>
+          </td>
+        </tr>
+      `).join('');
+      document.getElementById('dashboardRecent').innerHTML = rows || `<tr><td colspan="7" class="text-center">Belum ada data</td></tr>`;
+    } catch(e) {
+      document.getElementById('dashboardRecent').innerHTML = `<tr><td colspan="7" class="text-danger">Gagal memuat: ${e.message}</td></tr>`;
+    }
+  }
+
+  // jalankan saat page dimuat
+  (function(){
+    setTimeout(renderDashboardRecent, 200);
+    document.getElementById('lastSyncDisplay').textContent = document.getElementById('lastSync') ? document.getElementById('lastSync').textContent : '-';
+  })();
+</script>

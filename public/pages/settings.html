@@ -1,12 +1,57 @@
-<div class="card">
-  <div class="card-header"><strong>Settings (Database Sync Status)</strong></div>
-  <div class="card-body">
-    <div class="alert alert-info small">
-        <i class="bi bi-info-circle-fill"></i> **Pengaturan Koneksi Aman:** Koneksi database remote (CouchDB) kini ditangani oleh server (`server.js`) menggunakan Variabel Lingkungan untuk alasan keamanan. Fitur konfigurasi URL di frontend dinonaktifkan.
+<!-- pages/settings.html -->
+<div class="container">
+  <h4>Settings</h4>
+  <p class="small text-muted">Pengaturan sinkronisasi, notifikasi, dan informasi lingkungan.</p>
+
+  <div class="card mb-3">
+    <div class="card-header">Sinkronisasi</div>
+    <div class="card-body">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-6">
+          <label class="form-label small">Mode Sinkronisasi</label>
+          <select id="setting_sync_mode" class="form-select">
+            <option value="manual">Manual (default)</option>
+            <option value="auto">Otomatis (background)</option>
+          </select>
+        </div>
+        <div class="col-md-6 text-end">
+          <button id="btnManualPull" class="btn btn-primary">Tarik Data Sekarang</button>
+          <button id="btnSyncNow" class="btn btn-success" onclick="document.getElementById('btnSync')?.click();">Sync Now</button>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="form-label small">Notifikasi</label>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" value="" id="notifEnable">
+          <label class="form-check-label small" for="notifEnable">Aktifkan notifikasi browser (untuk pemberitahuan sinkronisasi & critical)</label>
+        </div>
+      </div>
     </div>
-    <div class="mt-3">
-        <p class="small text-muted">Gunakan tombol di bawah jika sinkronisasi otomatis gagal atau Anda ingin memastikan data ditarik dari server.</p>
-        <button id="btnManualPull" class="btn btn-secondary btn-sm"><i class="bi bi-arrow-down"></i> Tarik Semua Data dari Server</button>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Info Aplikasi</div>
+    <div class="card-body">
+      <p class="small mb-1"><strong>Deployed at:</strong> <span id="deployInfo">Railway</span></p>
+      <p class="small mb-1"><strong>API Endpoint:</strong> <code id="apiEndpoint">/api/inspeksi</code></p>
+      <p class="small mb-0"><strong>Versi Service Worker:</strong> <span id="swVersion">k3-app-shell-v5</span></p>
     </div>
   </div>
 </div>
+
+<script>
+  // Simple settings handlers: notifications and sync mode
+  document.addEventListener('DOMContentLoaded', () => {
+    const notifEnable = document.getElementById('notifEnable');
+    notifEnable.addEventListener('change', async () => {
+      if (notifEnable.checked) {
+        if (Notification && Notification.permission !== 'granted') {
+          await Notification.requestPermission();
+        }
+      }
+    });
+
+    // btnManualPull handled by main.js listeners (initSettings added)
+  });
+</script>

@@ -1,22 +1,47 @@
-<div class="card">
-    <div class="card-header"><strong>Rekapitulasi Data Inspeksi</strong></div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-sm table-striped small mb-0">
-                <thead>
-                    <tr>
-                        <th>Tanggal</th>
-                        <th>Inspector</th>
-                        <th>Lokasi/Area</th>
-                        <th>Uraian Temuan</th>
-                        <th>Risiko</th>
-                        <th>Status</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody id="rekapTableBody">
-                    </tbody>
-            </table>
-        </div>
+<!-- pages/rekap.html -->
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4>Rekap Inspeksi</h4>
+      <p class="small text-muted">Daftar inspeksi lokal (soft delete diproses). Gunakan Sync untuk mengirim data ke server.</p>
     </div>
+    <div>
+      <button class="btn btn-sm btn-success" id="btnExportAll" onclick="exportAllToPdf()"><i class="bi bi-file-earmark-pdf"></i> Export Semua ke PDF</button>
+    </div>
+  </div>
+
+  <div class="table-responsive card">
+    <table class="table table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Tanggal</th>
+          <th>Inspector</th>
+          <th>Lokasi / Area</th>
+          <th>Uraian</th>
+          <th>Risk</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="rekapTableBody">
+        <tr><td colspan="7" class="text-center small text-muted">Memuat...</td></tr>
+      </tbody>
+    </table>
+  </div>
 </div>
+
+<script>
+  // Simple export all -> loop through docs and call exportPDF (caveat: may prompt multiple saves)
+  async function exportAllToPdf() {
+    if (!confirm('Ekspor semua inspeksi yang tersimpan (akan membuka beberapa file PDF). Lanjutkan?')) return;
+    try {
+      const docs = await window._k3db.listInspections();
+      for (const doc of docs) {
+        // gunakan fungsi exportPDF yang ada di main.js
+        await window.exportPDF(doc._id, `${doc.lokasi || 'Inspeksi'}-${doc.tanggal_inspeksi || ''}`);
+      }
+    } catch (e) {
+      alert('Gagal ekspor semua: ' + e.message);
+    }
+  }
+</script>

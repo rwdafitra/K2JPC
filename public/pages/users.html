@@ -1,42 +1,57 @@
-<div class="row">
-    <div class="col-md-5">
-        <div class="card mb-3">
-            <div class="card-header"><strong>Tambah/Edit User Baru</strong></div>
-            <div class="card-body">
-                <form id="userForm">
-                    <div class="mb-3">
-                        <label class="form-label small">Username (ID)</label>
-                        <input id="f_uname" class="form-control form-control-sm" required placeholder="Contoh: dafitra.rw">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small">Nama Lengkap</label>
-                        <input id="f_name" class="form-control form-control-sm" required placeholder="Contoh: RW. Dafitra">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small">Role Akses</label>
-                        <select id="f_role" class="form-select form-select-sm">
-                            <option value="Inspector">Inspector (Input & Edit Data Sendiri)</option>
-                            <option value="Manager">Manager (Semua Akses & Admin)</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-person-add me-2"></i> Simpan User</button>
-                </form>
-            </div>
-        </div>
+<!-- pages/users.html -->
+<div class="container">
+  <h4>Manajemen User</h4>
+  <p class="small text-muted">Tambah, edit, dan atur tingkat akses user (Inspector / Manager).</p>
+
+  <div class="row">
+    <div class="col-md-4">
+      <div class="card p-3">
+        <form id="userForm" class="row g-2">
+          <div class="col-12">
+            <label class="form-label small">Username</label>
+            <input type="text" class="form-control" id="f_uname" required />
+          </div>
+          <div class="col-12">
+            <label class="form-label small">Nama Lengkap</label>
+            <input type="text" class="form-control" id="f_name" required />
+          </div>
+          <div class="col-12">
+            <label class="form-label small">Role / Tingkatan</label>
+            <select id="f_role" class="form-select" required>
+              <option value="Inspector">Inspector</option>
+              <option value="Supervisor">Supervisor</option>
+              <option value="Manager">Manager</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <div class="col-12 text-end">
+            <button type="submit" class="btn btn-primary btn-sm">Simpan User</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('userForm').reset(); document.getElementById('f_uname').disabled=false;">Reset</button>
+          </div>
+        </form>
+      </div>
     </div>
-    <div class="col-md-7">
-        <div class="card">
-            <div class="card-header"><strong>Daftar User Aktif</strong></div>
-            <div class="card-body p-0">
-                <table class="table table-sm table-striped small mb-0">
-                    <thead>
-                        <tr><th>Nama</th><th>Username</th><th>Role</th><th>Aksi</th></tr>
-                    </thead>
-                    <tbody id="userTableBody">
-                        </tbody>
-                </table>
-            </div>
+
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">Daftar User</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead class="table-light">
+                <tr><th>Nama</th><th>Username</th><th>Role</th><th>Aksi</th></tr>
+              </thead>
+              <tbody id="userTableBody">
+                <tr><td colspan="4" class="text-center small text-muted">Memuat...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
+      </div>
+
+      <div class="mt-2 small text-muted">
+        Catatan: User disimpan lokal di PouchDB. Gunakan Sync untuk mengirim ke server.
+      </div>
     </div>
+  </div>
 </div>
-<div id="usersContent"></div>

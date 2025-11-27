@@ -1,14 +1,28 @@
-<div id="detailContent">
-    </div>
+<!-- pages/detail.html -->
+<div class="container">
+  <div id="detailContent">
+    <div class="text-center small text-muted">Memuat detail inspeksi...</div>
+  </div>
 
-<div class="card mt-4">
-    <div class="card-header"><strong>Tambah Komentar / Tindak Lanjut</strong></div>
+  <div class="card mt-3">
+    <div class="card-header">Tambahkan Tindak Lanjut / Komentar</div>
     <div class="card-body">
-        <form id="commentForm">
-            <div class="mb-3">
-                <textarea id="f_comment" class="form-control form-control-sm" rows="2" placeholder="Tulis catatan tindak lanjut atau komentar..."></textarea>
-            </div>
-            <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-chat-left-text me-2"></i> Tambah Komentar</button>
-        </form>
+      <form id="commentForm" class="row g-2">
+        <div class="col-10">
+          <input type="text" id="f_comment" class="form-control" placeholder="Tulis komentar atau catatan tindak lanjut..." />
+        </div>
+        <div class="col-2 text-end">
+          <button type="submit" class="btn btn-primary">Tambahkan</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
+
+<style>
+  /* tanda tangan preview untuk PDF (jika ingin dilihat di UI) */
+  .signature-block { margin-top: 24px; display:flex; gap:20px; align-items:flex-start; }
+  .signature-box { width: 45%; border-top:1px solid #333; text-align:center; padding-top:8px; }
+</style>
+
+<!-- tidak perlu script: main.js sudah meng-handle rendering dan exportPDF -->

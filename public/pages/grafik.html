@@ -1,10 +1,58 @@
-<div class="card">
-    <div class="card-header"><strong>Statistik dan Analisis Tren</strong></div>
-    <div class="card-body">
-        <div id="chartContainer" class="p-3 border rounded">
-            </div>
-        <div class="mt-3 small text-muted">
-            <p>Data yang ditampilkan berdasarkan hasil inspeksi yang tersimpan di lokal.</p>
-        </div>
-    </div>
+<!-- pages/grafik.html -->
+<div class="container">
+  <h4>Grafik & Trend Risiko</h4>
+  <p class="small text-muted">Visualisasi ringkas: distribusi risk category dan tren temuan.</p>
+
+  <div id="chartContainer" style="min-height:300px;" class="card p-3">
+    <div id="chartMessage" class="small text-muted">Grafik akan dimuat di sini.</div>
+    <canvas id="riskChart" style="max-height:400px;"></canvas>
+  </div>
 </div>
+
+<script>
+  // Basic chart rendering using Chart.js if tersedia; otherwise placeholder
+  async function renderGrafik() {
+    try {
+      const docs = await window._k3db.listInspections(9999);
+      if (!docs || docs.length === 0) {
+        document.getElementById('chartMessage').textContent = 'Tidak ada data untuk menggambar grafik.';
+        return;
+      }
+
+      // counting categories
+      const counts = { HIGH:0, MEDIUM:0, LOW:0, UNKNOWN:0 };
+      docs.forEach(d => {
+        const cat = d.risk_category || 'UNKNOWN';
+        if (counts[cat] === undefined) counts.UNKNOWN++;
+        else counts[cat]++;
+      });
+
+      // try to use Chart.js (lazy load CDN if not present)
+      if (!window.Chart) {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+        document.head.appendChild(s);
+        s.onload = () => drawChart(counts);
+      } else {
+        drawChart(counts);
+      }
+    } catch (e) {
+      document.getElementById('chartMessage').textContent = 'Gagal memuat grafik: ' + e.message;
+    }
+  }
+
+  function drawChart(counts) {
+    const ctx = document.getElementById('riskChart').getContext('2d');
+    const labels = Object.keys(counts);
+    const data = labels.map(l => counts[l]);
+    if (window._riskChart) window._riskChart.destroy();
+    window._riskChart = new Chart(ctx, {
+      type: 'pie',
+      data: { labels, datasets: [{ data }] },
+      options: { responsive:true }
+    });
+    document.getElementById('chartMessage').style.display = 'none';
+  }
+
+  setTimeout(renderGrafik, 200);
+</script>
