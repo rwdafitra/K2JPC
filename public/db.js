@@ -7,7 +7,8 @@ const API_URL = '/api/inspeksi';
 const API_USER_URL = '/api/users'; 
 
 // Inisialisasi DB (Pastikan index ada untuk pencarian cepat)
-// FIX: Membungkus createIndex dengan catch agar script tidak crash jika plugin pouchdb-find gagal dimuat
+// FIX: Membungkus createIndex dengan catch. Index ini hanya akan berfungsi jika PouchDB Find 
+// berhasil dimuat di index.html, jika gagal, dia hanya akan mencatat WARN, tidak CRASH.
 db.createIndex({ index: { fields: ['type', 'created_at'] } })
     .catch(err => console.warn("PouchDB Index (created_at) failed to create. Pastikan PouchDB Find dimuat di index.html.", err.message));
 db.createIndex({ index: { fields: ['type', 'deleted'] } })
