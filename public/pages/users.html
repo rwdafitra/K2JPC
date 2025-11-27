@@ -1,24 +1,42 @@
-<div class="card shadow-sm">
-  <div class="card-header bg-white border-bottom">
-    <i class="bi bi-people me-2"></i>
-    <strong>Daftar & Status User (MOCK)</strong>
-  </div>
-  <div class="card-body">
-    <div id="userAlert"></div>
-    <div class="table-responsive">
-        <table class="table table-striped table-sm">
-            <thead class="table-light">
-                <tr>
-                    <th>Nama User</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Aksi</th>
-                </tr>
-            </thead>
-            <tbody id="usersTableBody">
-                <tr><td colspan="4" class="text-center">Memuat daftar user...</td></tr>
-            </tbody>
-        </table>
+<div class="row">
+    <div class="col-md-5">
+        <div class="card mb-3">
+            <div class="card-header"><strong>Tambah/Edit User Baru</strong></div>
+            <div class="card-body">
+                <form id="userForm">
+                    <div class="mb-3">
+                        <label class="form-label small">Username (ID)</label>
+                        <input id="f_uname" class="form-control form-control-sm" required placeholder="Contoh: dafitra.rw">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Nama Lengkap</label>
+                        <input id="f_name" class="form-control form-control-sm" required placeholder="Contoh: RW. Dafitra">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Role Akses</label>
+                        <select id="f_role" class="form-select form-select-sm">
+                            <option value="Inspector">Inspector (Input & Edit Data Sendiri)</option>
+                            <option value="Manager">Manager (Semua Akses & Admin)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-person-add me-2"></i> Simpan User</button>
+                </form>
+            </div>
+        </div>
     </div>
-  </div>
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header"><strong>Daftar User Aktif</strong></div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-striped small mb-0">
+                    <thead>
+                        <tr><th>Nama</th><th>Username</th><th>Role</th><th>Aksi</th></tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
+<div id="usersContent"></div>

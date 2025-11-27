@@ -1,32 +1,14 @@
-<div class="card shadow-sm mb-3">
-    <div class="card-header bg-secondary text-white">
-        <i class="bi bi-clipboard-data me-2"></i>
-        <strong>DETAIL INSPEKSI & TINDAK LANJUT</strong>
+<div id="detailContent">
     </div>
-    <div class="card-body" id="detailCardBody">
-        <div class="text-center p-5">Memuat detail temuan...</div>
-    </div>
-</div>
 
-<div class="card shadow-sm">
-    <div class="card-header bg-warning text-dark">
-        <i class="bi bi-chat-dots me-2"></i>
-        <strong>FORM TINDAK LANJUT / REVIEW (SUPERVISOR)</strong>
-    </div>
+<div class="card mt-4">
+    <div class="card-header"><strong>Tambah Komentar / Tindak Lanjut</strong></div>
     <div class="card-body">
-        <form id="formKomentar">
+        <form id="commentForm">
             <div class="mb-3">
-                <label class="form-label small fw-bold">Status Update</label>
-                <select id="f_status_update" class="form-select form-select-sm">
-                    <option value="Open">Open (Tambahkan Komentar)</option>
-                    <option value="Closed">Closed (Selesai/Tutup Temuan)</option>
-                </select>
+                <textarea id="f_comment" class="form-control form-control-sm" rows="2" placeholder="Tulis catatan tindak lanjut atau komentar..."></textarea>
             </div>
-            <div class="mb-3">
-                <label class="form-label small fw-bold">Komentar/Tindak Lanjut Atasan</label>
-                <textarea id="f_komentar" class="form-control form-control-sm" rows="3" required placeholder="Tambahkan komentar, verifikasi penutupan, atau instruksi tindak lanjut."></textarea>
-            </div>
-            <button type="submit" class="btn btn-warning"><i class="bi bi-send me-2"></i> Kirim Komentar & Update Status Lokal</button>
+            <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-chat-left-text me-2"></i> Tambah Komentar</button>
         </form>
     </div>
 </div>

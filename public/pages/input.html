@@ -1,33 +1,83 @@
 <div class="card">
-  <div class="card-header"><strong>Form Inspeksi (Hybrid)</strong></div>
+  <div class="card-header"><strong>Form Inspeksi Terencana (Minerba)</strong></div>
   <div class="card-body">
-    <form id="formHybrid">
+    <form id="formMinerba">
+      <h6 class="border-bottom pb-2">Data Dasar</h6>
       <div class="row mb-2">
-        <div class="col-md-4"><label class="form-label">Inspector</label><input id="f_inspector" class="form-control form-control-sm"></div>
-        <div class="col-md-4"><label class="form-label">Lokasi</label>
-          <select id="f_location" class="form-select form-select-sm"><option>PIT A</option><option>PIT B</option><option>Workshop</option><option>ROM</option></select>
+        <div class="col-md-4">
+          <label class="form-label small">Inspector</label>
+          <input id="f_inspector" class="form-control form-control-sm" readonly>
+          <input type="hidden" id="f_inspectorId">
         </div>
-        <div class="col-md-4"><label class="form-label">Jenis Kegiatan</label><select id="f_activity" class="form-select form-select-sm"><option>Rutin</option><option>Near Miss</option><option>Audit</option></select></div>
+        <div class="col-md-4">
+          <label class="form-label small">Tanggal Inspeksi</label>
+          <input type="date" class="form-control form-control-sm" value="${new Date().toISOString().split('T')[0]}" readonly>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Jenis Kegiatan</label>
+          <select id="f_activity" class="form-select form-select-sm">
+            <option>Rutin</option>
+            <option>Tindak Lanjut</option>
+            <option>Audit</option>
+          </select>
+        </div>
       </div>
-      <div class="row mb-2">
-        <div class="col-md-3"><label class="form-label">Severity</label><input id="f_sev" type="number" min="1" max="5" value="2" class="form-control form-control-sm"></div>
-        <div class="col-md-3"><label class="form-label">Likelihood</label><input id="f_like" type="number" min="1" max="5" value="2" class="form-control form-control-sm"></div>
-        <div class="col-md-3"><label class="form-label">Risk Score</label><input id="f_risk" readonly class="form-control form-control-sm"></div>
-        <div class="col-md-3"><label class="form-label">GPS (opsional)</label><input id="f_gps" class="form-control form-control-sm"></div>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label small">Lokasi (Tambang/Non)</label>
+          <select id="f_location" class="form-select form-select-sm">
+            <option>PIT A</option><option>PIT B</option><option>Workshop</option><option>ROM</option><option>Area Non-Tambang</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small">Area Spesifik</label>
+          <input id="f_area" class="form-control form-control-sm" placeholder="Contoh: Blasting Area 2">
+        </div>
       </div>
 
+      <h6 class="border-bottom pb-2 mt-4">Detail Temuan & Risiko</h6>
       <div class="mb-3">
-        <label class="form-label">Foto (max 4)</label>
+        <label class="form-label small">Kategori Temuan</label>
+        <select id="f_category" class="form-select form-select-sm">
+          <option>Kelengkapan Peralatan</option><option>Standar Operasi</option><option>Kondisi Lingkungan</option><option>Perilaku Tidak Aman</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small">Uraian Temuan (Detail Ketidaksesuaian)</label>
+        <textarea id="f_uraian" class="form-control form-control-sm" rows="3" required></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small">Referensi Hukum / Standar</label>
+        <input id="f_ref_hukum" class="form-control form-control-sm" placeholder="Contoh: UU 3/2020, SOP No. 01/2023">
+      </div>
+      
+      <div class="row mb-2">
+        <div class="col-md-3"><label class="form-label small">Severity (1-5)</label><input id="f_sev" type="number" min="1" max="5" value="2" class="form-control form-control-sm"></div>
+        <div class="col-md-3"><label class="form-label small">Likelihood (1-5)</label><input id="f_like" type="number" min="1" max="5" value="2" class="form-control form-control-sm"></div>
+        <div class="col-md-3"><label class="form-label small">Risk Score (S x L)</label><input id="f_risk" readonly class="form-control form-control-sm"></div>
+        <div class="col-md-3"><label class="form-label small">Kategori Risiko</label><input id="f_risk_cat" readonly class="form-control form-control-sm"></div>
+      </div>
+
+      <h6 class="border-bottom pb-2 mt-4">Tindak Lanjut & Bukti</h6>
+      <div class="mb-3">
+        <label class="form-label small">Rekomendasi Tindak Lanjut</label>
+        <textarea id="f_rekomendasi" class="form-control form-control-sm" rows="2" required></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small">Target Penyelesaian (Tanggal)</label>
+        <input id="f_target_tl" type="date" class="form-control form-control-sm">
+      </div>
+      
+      <div class="mb-3">
+        <label class="form-label small">Foto Temuan (Max 4, Wajib)</label>
         <input id="f_photos" type="file" accept="image/*" multiple class="form-control form-control-sm">
-        <div id="photoPreview" class="mt-2 d-flex flex-wrap"></div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small">GPS Koordinat (Opsional)</label>
+        <input id="f_gps" class="form-control form-control-sm" placeholder="Latitude, Longitude">
       </div>
 
-      <hr>
-      <div id="stdChecklist"></div>
-
-      <div class="mt-3">
-        <button id="saveLocal" class="btn btn-primary">Simpan (lokal)</button>
-      </div>
+      <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-2"></i> Simpan Inspeksi Lokal</button>
     </form>
   </div>
 </div>
