@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'k3-app-shell-v6'; // CACHE NAME DITINGKATKAN
+const CACHE_NAME = 'k3-app-shell-v7'; // CACHE NAME DITINGKATKAN
 
 const FILES_TO_CACHE = [
   '/',
