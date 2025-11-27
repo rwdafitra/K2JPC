@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Inspeksi K3 - Dashboard</title>
 
-  <!-- Bootstrap (CSS) & Icons (digunakan oleh main.js) -->
+  <!-- Bootstrap (CSS) & Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
 
-  <!-- App icons / manifest (opsional) -->
+  <!-- PWA -->
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/favicon.ico" />
 
@@ -20,9 +20,9 @@
     .content-area { flex:1; padding:16px; }
     .sidebar a { display:block; padding:8px 6px; color:#333; text-decoration:none; border-radius:6px; }
     .sidebar a.active { background:#0d6efd; color:#fff; }
-    .page-header { margin-bottom:12px; }
   </style>
 </head>
+
 <body>
   <header class="d-flex align-items-center p-2 bg-light">
     <div class="container-fluid d-flex justify-content-between align-items-center">
@@ -30,17 +30,13 @@
         <button class="btn btn-sm btn-outline-secondary me-2" id="btnSync"><i class="bi bi-arrow-down-up me-1"></i> Sync Now</button>
         <button class="btn btn-sm btn-outline-secondary" id="btnManualPull"><i class="bi bi-cloud-download me-1"></i> Pull</button>
       </div>
-      <div>
-        <strong>Inspeksi K3</strong>
-      </div>
-      <div class="text-end small">
-        <span id="lastSync">-</span>
-      </div>
+      <div><strong>Inspeksi K3</strong></div>
+      <div class="text-end small"><span id="lastSync">-</span></div>
     </div>
   </header>
 
   <div class="app-shell">
-    <nav class="sidebar bg-white">
+    <nav class="sidebar">
       <h6 class="small text-muted">Menu</h6>
       <a href="#dashboard" data-page="dashboard" class="active"><i class="bi bi-speedometer2 me-1"></i> Dashboard</a>
       <a href="#input" data-page="input"><i class="bi bi-pencil-square me-1"></i> Input</a>
@@ -51,62 +47,41 @@
     </nav>
 
     <main class="content-area">
-      <div class="page-header">
-        <h3 id="pageTitle">Dashboard</h3>
-        <div class="text-muted small" id="pageSubtitle">Ringkasan Statistik Inspeksi</div>
-      </div>
-
+      <h3 id="pageTitle">Dashboard</h3>
+      <div id="pageSubtitle" class="small text-muted">Ringkasan Statistik Inspeksi</div>
       <div id="content">
-        <!-- Router akan memuat pages/*.html di sini -->
-        <div class="alert alert-info">Memuat aplikasi... Jika ini berhenti lama, cek konsol.</div>
+        <div class="alert alert-info">Memuat aplikasi...</div>
       </div>
     </main>
   </div>
 
-  <footer class="text-center small p-2 bg-light">
-    © Sistem Inspeksi K3
-  </footer>
+  <footer class="text-center small p-2 bg-light">© Sistem Inspeksi K3</footer>
 
-  <!-- Dependensi (harus dimuat sebelum db.js/main.js) -->
+  <!-- Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/pouchdb@7.3.0/dist/pouchdb.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pouchdb-find@7.3.0/dist/pouchdb.find.min.js"></script>
-
-  <!-- jsPDF + html2canvas (dipakai oleh exportPDF di main.js) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-  <!-- App scripts (urutannya penting) -->
-  <script src="/router.js"></script>
+  <!-- Correct Script Order -->
   <script src="/db.js"></script>
+  <script src="/router.js"></script>
   <script src="/main.js"></script>
 
-  <!-- Register service worker (sw.js) -->
+  <!-- SW -->
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('✅ SW terdaftar:', reg.scope))
-          .catch(err => console.warn('⚠️ Gagal registrasi SW:', err));
-      });
-    }
-
-    // Basic hash routing: load initial page on startup
-    (function() {
-      // If there is no hash, navigate to dashboard
-      if (!window.location.hash) {
-        window.location.hash = '#dashboard';
-      }
-      // Try to navigate to current hash page using router
-      try {
-        const page = (window.location.hash || '#dashboard').replace('#','').split('?')[0];
-        if (window.router && window.router.navigateTo) {
-          window.router.navigateTo(page);
-        } else {
-          // If router not yet loaded, wait shortly
-          setTimeout(() => window.router?.navigateTo(page), 300);
-        }
-      } catch(e) { console.warn('Init routing error', e); }
-    })();
+  if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+  }
   </script>
+
+  <!-- Route after DOM ready -->
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const page = window.location.hash.replace('#','') || 'dashboard';
+    router.navigateTo(page);
+  });
+  </script>
+
 </body>
 </html>
