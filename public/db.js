@@ -8,8 +8,10 @@ const API_USER_URL = '/api/users';
 
 // Inisialisasi DB (Pastikan index ada untuk pencarian cepat)
 // FIX: Membungkus createIndex dengan catch agar script tidak crash jika plugin pouchdb-find gagal dimuat
-db.createIndex({ index: { fields: ['type', 'created_at'] } }).catch(err => console.warn("PouchDB Index (created_at) failed to create.", err.message));
-db.createIndex({ index: { fields: ['type', 'deleted'] } }).catch(err => console.warn("PouchDB Index (deleted) failed to create.", err.message));
+db.createIndex({ index: { fields: ['type', 'created_at'] } })
+    .catch(err => console.warn("PouchDB Index (created_at) failed to create. Pastikan PouchDB Find dimuat di index.html.", err.message));
+db.createIndex({ index: { fields: ['type', 'deleted'] } })
+    .catch(err => console.warn("PouchDB Index (deleted) failed to create.", err.message));
 
 
 /**
@@ -27,9 +29,9 @@ async function saveInspection(doc, attachments = []) {
   try {
     let res = await db.put(doc);
     
+    // Simpan attachments
     for (let i = 0; i < attachments.length; i++) {
       const att = attachments[i];
-      // Logic untuk attachment tetap ada
       await db.putAttachment(doc._id, `photo_${i}`, res.rev, att.type, att.blob).catch(async (e) => {
         // Coba dapatkan rev terbaru jika putAttachment gagal
         const latest = await db.get(doc._id);
@@ -125,7 +127,7 @@ async function listUsers() {
     }
 }
 
-// Export semua fungsi yang diperlukan
+// Export semua fungsi yang diperlukan ke window
 window._k3db = {
   db, API_URL, API_USER_URL,
   saveInspection, getInspection, listInspections, softDeleteInspection,

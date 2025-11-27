@@ -14,8 +14,9 @@
     .sidebar{background:var(--sidebar);color:#cfe6ff;min-height:100vh;padding-top:20px}
     .sidebar a{color:#bcd2e8;text-decoration:none;display:block;padding:10px 16px}
     .sidebar a:hover{background:#24303d;color:#fff}
-    .sidebar a.active{background:var(--primary);color:#fff!important;border-radius:4px;font-weight:600}
-    .fab-install{position:fixed;bottom:20px;right:20px;background:var(--primary);color:#fff;border-radius:50%;width:50px;height:50px;box-shadow:0 4px 6px rgba(0,0,0,.1);border:none;z-index:1000}
+    /* FIX: class active di sidebar */
+    .sidebar a.active{background:var(--primary);color:#fff!important;border-radius:4px;font-weight:600} 
+    .fab-install{position:fixed;bottom:20px;right:20px;background:var(--primary);color:#fff;border-radius:50%;width:50px;height:50px;box-shadow:0 4px 6px rgba(0,0,0,.1);border:none;z-index:1000; display:flex;justify-content:center;align-items:center;cursor:pointer;}
   </style>
 </head>
 <body>
@@ -48,7 +49,9 @@
     </div>
   </div>
 
-  <button class="fab-install d-none" id="installButton"><i class="bi bi-cloud-download-fill"></i></button>
+  <div id="installAppFab" class="fab-install d-none">
+    <i class="bi bi-download"></i>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/pouchdb@8.0.1/dist/pouchdb.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pouchdb-find@8.0.1/dist/pouchdb.find.min.js"></script>
@@ -56,11 +59,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-  <script src="db.js"></script>
+  <script src="./router.js"></script>
   
-  <script src="router.js"></script>
+  <script src="./db.js"></script>
   
-  <script src="main.js"></script>
+  <script src="./main.js"></script>
 
   <script>
     if ('serviceWorker' in navigator) {
@@ -70,9 +73,27 @@
         console.error('Service Worker registration failed:', err);
       });
     }
-    // Initial load, navigasi ke Dashboard
+
+    // PWA Install Logic
+    let deferredPrompt;
+    const installFab = document.getElementById('installAppFab');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installFab.style.display = 'flex'; // Mengubah display:none
+    });
+    installFab.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice.outcome === 'accepted') installFab.style.display = 'none';
+      deferredPrompt = null;
+    });
+    window.addEventListener('appinstalled', ()=>{ installFab.style.display='none'; alert('Aplikasi terpasang'); });
+
+    // Initial load and hash change listener (FIX NAVIGASI)
     window.addEventListener('load', () => {
-        // Fix: Menggunakan location.hash.substring(1) untuk menghindari 'dashboard' jika hash kosong
+        // Navigasi yang aman
         router.navigateTo(location.hash.substring(1).split('?')[0] || 'dashboard');
     });
     window.addEventListener('hashchange', () => {
