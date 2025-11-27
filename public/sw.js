@@ -1,52 +1,126 @@
-const CACHE_NAME = 'k3-app-shell-v5'; // <--- VERSI BARU: WAJIB DINAIKKAN
-const FILES_TO_CACHE = [
+// ============================
+//  SERVICE WORKER - FINAL SAFE VERSION
+// ============================
+const CACHE_VERSION = 'k3-v7'; 
+const CACHE_NAME = `k3-cache-${CACHE_VERSION}`;
+
+// Semua asset static yang ingin dicache
+const ASSETS = [
   '/',
   '/index.html',
-  // Jalur file lokal harus dimulai dengan / (root web = public/)
-  '/manifest.json',
-  '/router.js',
   '/main.js',
+  '/router.js',
   '/db.js',
-  '/pages/dashboard.html', 
+  '/manifest.json',
+
+  // pages
+  '/pages/dashboard.html',
   '/pages/input.html',
   '/pages/rekap.html',
+  '/pages/detail.html',
   '/pages/grafik.html',
   '/pages/users.html',
   '/pages/settings.html',
-  // FIX 404 Ikon: Ikon harus di-cache dan ada di folder public/
-  '/favicon.ico',
-  '/icon-192.png', 
-  '/icon-512.png', 
-  
-  // CDN Links
-  'https://cdn.jsdelivr.net/npm/pouchdb@7.3.0/dist/pouchdb.min.js',
-  'https://cdn.jsdelivr.net/npm/pouchdb-find@7.3.0/dist/pouchdb.find.min.js', 
-  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
-  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css'
+
+  // icons (hanya jika memang ada)
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
-self.addEventListener('install', (evt) => {
-  evt.waitUntil(caches.open(CACHE_NAME).then((cache)=>cache.addAll(FILES_TO_CACHE)));
-  self.skipWaiting();
-});
 
-self.addEventListener('activate', (evt) => {
-  // Hapus cache lama
-  evt.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(keyList.map((key) => {
-        if (key !== CACHE_NAME) {
-          return caches.delete(key);
+// ============================
+//  INSTALL - SAFE CACHING
+// ============================
+self.addEventListener('install', event => {
+  console.log('[SW] Installing…');
+
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+
+      for (const asset of ASSETS) {
+        try {
+          const res = await fetch(asset, { cache: "no-cache" });
+
+          if (res.ok) {
+            await cache.put(asset, res.clone());
+            console.log('[SW] Cached:', asset);
+          } else {
+            console.warn('[SW] Skip (not found):', asset);
+          }
+
+        } catch (err) {
+          console.warn('[SW] Skip (fetch error):', asset, err);
         }
-      }));
-    })
+      }
+
+      console.log('[SW] Install complete.');
+      self.skipWaiting();
+    })()
   );
-  evt.waitUntil(self.clients.claim());
 });
 
-self.addEventListener('fetch', (evt) => {
-  if (evt.request.method !== 'GET') return;
-  evt.respondWith(
-    caches.match(evt.request).then(resp => resp || fetch(evt.request).catch(()=>caches.match('/index.html')))
+
+// ============================
+//  ACTIVATE - DELETE OLD CACHES
+// ============================
+self.addEventListener('activate', event => {
+  console.log('[SW] Activating…');
+
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+
+      for (const key of keys) {
+        if (key !== CACHE_NAME) {
+          console.log('[SW] Deleting old cache:', key);
+          await caches.delete(key);
+        }
+      }
+
+      console.log('[SW] Ready.');
+      self.clients.claim();
+    })()
   );
+});
+
+
+// ============================
+//  FETCH - CACHE FIRST + NETWORK FALLBACK
+// ============================
+self.addEventListener('fetch', event => {
+
+  // Jangan intercept request non-HTTP
+  if (!event.request.url.startsWith('http')) return;
+
+  event.respondWith(
+    (async () => {
+      const cacheMatch = await caches.match(event.request);
+      if (cacheMatch) {
+        return cacheMatch; // Cache first
+      }
+
+      try {
+        const fetchResponse = await fetch(event.request);
+        return fetchResponse;
+      } catch (err) {
+        console.warn('[SW] Network fail:', event.request.url);
+        
+        // fallback: tampilkan offline page (?) jika mau
+        return new Response('<h3>Offline</h3>', {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+    })()
+  );
+});
+
+
+// ============================
+//  MESSAGE HANDLER (optional for future sync)
+// ============================
+self.addEventListener('message', (event) => {
+  if (event.data === 'skipWaiting') {
+    self.skipWaiting();
+  }
 });
