@@ -4,19 +4,19 @@ const db = new PouchDB(DB_NAME);
 
 // API URL untuk PUSH/PULL data melalui server Express
 const API_URL = '/api/inspeksi'; 
-const API_USER_URL = '/api/users'; 
+const API_USER_URL = '/api/users'; // API untuk manajemen user/akun
 
 // Inisialisasi DB (Pastikan index ada untuk pencarian cepat)
-// FIX: Membungkus createIndex dengan catch. Index ini hanya akan berfungsi jika PouchDB Find 
-// berhasil dimuat di index.html, jika gagal, dia hanya akan mencatat WARN, tidak CRASH.
+// FIX: Membungkus createIndex dengan catch. Index ini hanya akan berfungsi jika 
+// PouchDB Find berhasil dimuat di index.html. Jika gagal, hanya akan mencatat WARN.
 db.createIndex({ index: { fields: ['type', 'created_at'] } })
-    .catch(err => console.warn("PouchDB Index (created_at) failed to create. Pastikan PouchDB Find dimuat di index.html.", err.message));
+    .catch(err => console.warn("PouchDB Index (created_at) gagal dibuat. PASTIKAN PouchDB Find dimuat di index.html.", err.message));
 db.createIndex({ index: { fields: ['type', 'deleted'] } })
-    .catch(err => console.warn("PouchDB Index (deleted) failed to create.", err.message));
+    .catch(err => console.warn("PouchDB Index (deleted) gagal dibuat.", err.message));
 
 
 /**
- * Save inspection document (with optional attachments)
+ * Menyimpan dokumen inspeksi baru atau memperbarui yang sudah ada (termasuk lampiran).
  */
 async function saveInspection(doc, attachments = []) {
   if (!doc._id) {
@@ -33,8 +33,8 @@ async function saveInspection(doc, attachments = []) {
     // Simpan attachments
     for (let i = 0; i < attachments.length; i++) {
       const att = attachments[i];
+      // Jika putAttachment gagal, coba dapatkan rev terbaru dan ulangi
       await db.putAttachment(doc._id, `photo_${i}`, res.rev, att.type, att.blob).catch(async (e) => {
-        // Coba dapatkan rev terbaru jika putAttachment gagal
         const latest = await db.get(doc._id);
         res = await db.putAttachment(doc._id, `photo_${i}`, latest._rev, att.type, att.blob);
       });
@@ -46,14 +46,15 @@ async function saveInspection(doc, attachments = []) {
 }
 
 /**
- * Get single inspection document by ID
+ * Mengambil detail dokumen inspeksi tunggal.
  */
 async function getInspection(id) {
     return db.get(id, { attachments: true });
 }
 
 /**
- * List inspection documents (menggunakan pouchdb-find dan filter soft-delete)
+ * Mendaftar dokumen inspeksi (menggunakan pouchdb-find).
+ * Jika find gagal, ia akan beralih ke allDocs (fallback) untuk mencegah crash total.
  */
 async function listInspections(limit = 100) {
   try {
@@ -65,7 +66,7 @@ async function listInspections(limit = 100) {
     return found.docs;
   } catch (e) {
     console.warn("listInspections failed with find(), falling back to allDocs.", e.message);
-    // Fallback jika index gagal atau find tidak tersedia
+    // Fallback: Jika find() gagal (plugin tidak dimuat), gunakan allDocs
     const all = await db.allDocs({ include_docs: true, descending: true });
     return all.rows
         .map(r => r.doc)
@@ -76,7 +77,7 @@ async function listInspections(limit = 100) {
 }
 
 /**
- * Soft delete inspection (tandai sebagai deleted: true)
+ * Soft delete inspeksi (menandai sebagai deleted: true).
  */
 async function softDeleteInspection(id) {
     const doc = await db.get(id);
@@ -89,7 +90,7 @@ async function softDeleteInspection(id) {
 // --- USER MANAGEMENT ---
 
 /**
- * Save or update user document
+ * Menyimpan atau memperbarui dokumen user.
  */
 async function saveUser(userDoc) {
     if (!userDoc._id) {
@@ -112,10 +113,11 @@ async function saveUser(userDoc) {
 }
 
 /**
- * List all active users
+ * Mendaftar semua user aktif.
  */
 async function listUsers() {
     try {
+        // Menggunakan find()
         const found = await db.find({ 
             selector: { type: 'user', deleted: false }, 
             sort: [{ name: 'asc' }]
@@ -123,6 +125,7 @@ async function listUsers() {
         return found.docs;
     } catch (e) {
         console.warn("listUsers failed with find(), falling back to allDocs.", e.message);
+        // Fallback: Jika find() gagal
         const all = await db.allDocs({ include_docs: true });
         return all.rows.map(r => r.doc).filter(d => d && d.type === 'user' && !d.deleted);
     }

@@ -64,19 +64,17 @@
   <script src="./main.js"></script>
 
   <script>
-    // register service worker
     if ('serviceWorker' in navigator) {
-      // FIX: Menggunakan jalur absolut dari root web: /sw.js (berarti public/sw.js)
+      // FIX: Menggunakan jalur absolut /sw.js karena public/ adalah root web
       navigator.serviceWorker.register('/sw.js').then(()=>console.log('sw registered')).catch(e=>console.warn('sw fail', e));
     }
 
-    // install FAB logic
     let deferredPrompt;
     const installFab = document.getElementById('installAppFab');
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      installFab.style.display = 'flex'; // Tampilkan FAB
+      installFab.style.display = 'flex';
     });
     installFab.addEventListener('click', async () => {
       if (!deferredPrompt) return;
@@ -87,7 +85,6 @@
     });
     window.addEventListener('appinstalled', ()=>{ installFab.style.display='none'; alert('Aplikasi terpasang'); });
 
-    // Initial load and hash change listener
     window.addEventListener('load', () => {
         router.navigateTo(location.hash.substring(1).split('?')[0] || 'dashboard');
     });
