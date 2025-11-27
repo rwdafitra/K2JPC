@@ -1,6 +1,11 @@
-<div class="card">
-  <div class="card-header"><strong>Grafik & Tren</strong></div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<div class="card mb-3 shadow-sm">
+  <div class="card-header"><strong>Grafik dan Trend Inspeksi</strong></div>
   <div class="card-body">
-    <canvas id="chartTrend" height="140"></canvas>
+    <div id="grafikContent">
+        <canvas id="inspectionChart" width="400" height="200"></canvas>
+    </div>
+    <hr>
+    <p class="small text-muted">Contoh: Grafik menampilkan jumlah Inspeksi berdasarkan Lokasi. Anda dapat memperluas logika <code>initGrafik()</code> untuk membuat grafik trend bulanan atau risiko.</p>
   </div>
 </div>

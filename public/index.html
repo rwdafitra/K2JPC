@@ -11,85 +11,86 @@
   <style>
     :root{--primary:#0d6efd;--sidebar:#1A2530;--muted-bg:#f6f8fa}
     body{background:var(--muted-bg);font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial}
-    .sidebar{background:var(--sidebar);color:#cfe6ff;min-height:100vh;padding-top:20px}
-    .sidebar a{color:#bcd2e8;text-decoration:none;display:block;padding:10px 16px}
+    .sidebar{background:var(--sidebar);color:#cfe6ff;min-height:100vh;padding-top:20px;position:fixed;z-index:1000}
+    .sidebar a{color:#bcd2e8;text-decoration:none;display:block;padding:10px 16px;border-radius:5px;margin:5px 10px}
     .sidebar a:hover{background:#24303d;color:#fff}
-    .fab-install{position:fixed;bottom:20px;right:20px;background:var(--primary);color:#fff;border-radius:50%;width:50px;height:50px;display:flex;justify-content:center;align-items:center;cursor:pointer;box-shadow:0 4px 6px rgba(0,0,0,0.1)}
-    .nav-item.active{background:#24303d;color:#fff!important}
+    .sidebar a.active{background:var(--primary);color:#fff!important;font-weight:bold}
+    .fab-install{position:fixed;bottom:20px;right:20px;background:var(--primary);color:#fff;border-radius:50%;padding:15px;box-shadow:0 4px 6px rgba(0,0,0,.1);cursor:pointer;z-index:1010}
+    .content-area{padding-top:20px}
+    /* Responsiveness untuk Sidebar */
+    @media (max-width: 767.98px) {
+        .sidebar { display: none !important; }
+        .offset-md-3, .offset-lg-2 { margin-left: 0 !important; }
+        .col-md-9, .col-lg-10 { width: 100% !important; }
+    }
   </style>
   
-  <script src="https://cdn.jsdelivr.net/npm/pouchdb@7.3.0/dist/pouchdb.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pouchdb-find@7.3.0/lib/index.js"></script>
-
-  <script src="./router.js"></script>
-  <script src="./db.js"></script>
-  <script src="./main.js"></script>
-
-  <script>
-    // register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').then(()=>console.log('sw registered')).catch(e=>console.warn('sw fail', e));
-    }
-
-    // install FAB
-    let deferredPrompt;
-    const installFab = document.getElementById('installAppFab');
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      installFab.style.display = 'block';
-    });
-    installFab.addEventListener('click', async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice.outcome === 'accepted') installFab.style.display = 'none';
-      deferredPrompt = null;
-    });
-    window.addEventListener('appinstalled', ()=>{ installFab.style.display='none'; alert('Aplikasi terpasang'); });
-
-    // bind nav clicks
-    document.querySelectorAll('.nav-item').forEach(a=>{
-      a.addEventListener('click', (ev)=>{
-        ev.preventDefault();
-        const page = ev.currentTarget.getAttribute('data-page');
-        if (page) router.navigateTo(page);
-      });
-    });
-
-    // load default page
-    router.navigateTo('dashboard');
-  </script>
+  <script src="./pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pouchdb-find@8.0.0/dist/pouchdb.find.min.js"></script>
 </head>
 <body>
-  <div class="container-fluid">
-    <div class="row">
-      <div class="col-lg-2 col-md-3 d-none d-md-block sidebar">
-        <h5 class="text-center mb-4">K3.JPC</h5>
-        <a href="#" class="nav-item active" data-page="dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
-        <a href="#" class="nav-item" data-page="input"><i class="bi bi-file-earmark-plus me-2"></i>Input Inspeksi</a>
-        <a href="#" class="nav-item" data-page="rekap"><i class="bi bi-table me-2"></i>Rekap Data</a>
-        <a href="#" class="nav-item" data-page="grafik"><i class="bi bi-bar-chart-line me-2"></i>Grafik & Trend</a>
-        <a href="#" class="nav-item" data-page="users"><i class="bi bi-people me-2"></i>Users</a>
-        <a href="#" class="nav-item" data-page="settings"><i class="bi bi-gear me-2"></i>Settings</a>
-      </div>
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-lg-2 col-md-3 d-none d-md-block sidebar">
+      <h5 class="text-center mb-4">K3.JPC</h5>
+      <a href="#" class="nav-item active" data-page="dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+      <a href="#" class="nav-item" data-page="input"><i class="bi bi-file-earmark-plus me-2"></i>Input Inspeksi</a>
+      <a href="#" class="nav-item" data-page="rekap"><i class="bi bi-table me-2"></i>Rekap Data</a>
+      <a href="#" class="nav-item" data-page="grafik"><i class="bi bi-bar-chart-line me-2"></i>Grafik & Trend</a>
+      <a href="#" class="nav-item" data-page="users"><i class="bi bi-people me-2"></i>Users</a>
+      <a href="#" class="nav-item" data-page="settings"><i class="bi bi-gear me-2"></i>Settings</a>
+    </div>
 
-      <div class="col-lg-10 col-md-9 offset-md-3 offset-lg-2">
-        <header class="p-3 bg-white border-bottom shadow-sm d-flex justify-content-between align-items-center">
-          <div>
-            <h4 class="mb-0" id="pageTitle">Dashboard</h4>
-            <div class="small text-muted" id="pageSubtitle"></div>
-          </div>
-          <button id="btnSync" class="btn btn-sm btn-primary"><i class="bi bi-arrow-down-up me-1"></i> Sync Now</button>
-        </header>
-
-        <main id="content" class="p-3" data-page="dashboard"></main>
+    <div class="col-lg-10 col-md-9 offset-md-3 offset-lg-2 content-area">
+      <header class="p-3 bg-white border-bottom shadow-sm d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h4 class="mb-0" id="pageTitle">Dashboard</h4>
+          <div class="small text-muted" id="pageSubtitle">Ringkasan Data Inspeksi</div>
+        </div>
+        <button id="btnSync" class="btn btn-primary btn-sm"><i class="bi bi-arrow-repeat me-1"></i>Sinkronisasi Sekarang</button>
+      </header>
+      
+      <div id="content" class="p-3">
+        <div class="text-center p-5">Memuat Dashboard...</div>
       </div>
     </div>
   </div>
+</div>
 
-  <div id="installAppFab" class="fab-install" style="display:none">
-    <i class="bi bi-download"></i>
-  </div>
+<div id="fabInstall" class="fab-install d-none"><i class="bi bi-download"></i></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="./db.js"></script>
+<script src="./router.js"></script>
+<script src="./main.js"></script>
+<script>
+  // PWA Install Prompt Logic
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('fabInstall').classList.remove('d-none');
+    document.getElementById('fabInstall').addEventListener('click', () => deferredPrompt.prompt());
+  });
+  
+  // Service Worker Registration
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('Service Worker Registered'))
+      .catch(err => console.error('SW failed:', err));
+  }
+
+  // Initial Page Load
+  document.addEventListener('DOMContentLoaded', () => {
+    router.navigateTo('dashboard');
+    // Binds sidebar links
+    document.querySelectorAll('.nav-item').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        router.navigateTo(e.target.dataset.page);
+      });
+    });
+  });
+</script>
 </body>
 </html>
