@@ -1,8 +1,8 @@
-const CACHE_NAME = 'k3-app-shell-v4'; // <--- VERSI BARU
+const CACHE_NAME = 'k3-app-shell-v5'; // <--- VERSI BARU: WAJIB DINAIKKAN
 const FILES_TO_CACHE = [
   '/',
   '/index.html',
-  // FIX: Tambahkan semua file lokal yang dimuat dari root web
+  // Jalur file lokal harus dimulai dengan / (root web = public/)
   '/manifest.json',
   '/router.js',
   '/main.js',
@@ -13,10 +13,10 @@ const FILES_TO_CACHE = [
   '/pages/grafik.html',
   '/pages/users.html',
   '/pages/settings.html',
-  // FIX 404 Ikon
+  // FIX 404 Ikon: Ikon harus di-cache dan ada di folder public/
   '/favicon.ico',
-  '/icon-192.png', // Pastikan file ini ada di public/
-  '/icon-512.png', // Pastikan file ini ada di public/
+  '/icon-192.png', 
+  '/icon-512.png', 
   
   // CDN Links
   'https://cdn.jsdelivr.net/npm/pouchdb@7.3.0/dist/pouchdb.min.js',

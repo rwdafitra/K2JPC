@@ -1,96 +1,52 @@
-<!doctype html>
-<html lang="id">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>K3.JPC - Inspeksi K3 (PWA)</title>
-  <meta name="theme-color" content="#0d6efd">
-  <link rel="manifest" href="./manifest.json"> 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-  <style>
-    :root{--primary:#0d6efd;--sidebar:#1A2530;--muted-bg:#f6f8fa}
-    body{background:var(--muted-bg);font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial}
-    .sidebar{background:var(--sidebar);color:#cfe6ff;min-height:100vh;padding-top:20px}
-    .sidebar a{color:#bcd2e8;text-decoration:none;display:block;padding:10px 16px}
-    .sidebar a:hover{background:#24303d;color:#fff}
-    .sidebar a.active{background:var(--primary);color:#fff!important;border-radius:4px;font-weight:600} 
-    .fab-install{position:fixed;bottom:20px;right:20px;background:var(--primary);color:#fff;border-radius:50%;width:50px;height:50px;display:flex;justify-content:center;align-items:center;cursor:pointer;box-shadow:0 4px 6px rgba(0,0,0,0.1)}
-  </style>
-</head>
-<body>
-
-  <div class="container-fluid">
-    <div class="row">
-
-      <div class="col-lg-2 col-md-3 d-none d-md-block sidebar">
-        <h5 class="text-center mb-4">K3.JPC</h5>
-        <a href="#dashboard" class="nav-item active" data-page="dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
-        <a href="#input" class="nav-item" data-page="input"><i class="bi bi-file-earmark-plus me-2"></i>Input Inspeksi</a>
-        <a href="#rekap" class="nav-item" data-page="rekap"><i class="bi bi-table me-2"></i>Rekap Data</a>
-        <a href="#grafik" class="nav-item" data-page="grafik"><i class="bi bi-bar-chart-line me-2"></i>Grafik & Trend</a>
-        <a href="#users" class="nav-item" data-page="users" style="display:none;"><i class="bi bi-people me-2"></i>Users</a>
-        <a href="#settings" class="nav-item" data-page="settings"><i class="bi bi-gear me-2"></i>Settings</a>
-      </div>
-
-      <div class="col-lg-10 col-md-9 offset-md-3 offset-lg-2">
-        <header class="p-3 bg-white border-bottom shadow-sm d-flex justify-content-between align-items-center">
-          <div>
-            <h4 class="mb-0" id="pageTitle">Dashboard</h4>
-            <div class="small text-muted" id="pageSubtitle"></div>
-          </div>
-          <button id="btnSync" class="btn btn-sm btn-primary"><i class="bi bi-arrow-down-up me-1"></i> Sync Now</button>
-        </header>
-
-        <main id="content" class="p-3" data-page="dashboard">
-             </main>
-      </div>
-    </div>
-  </div>
-
-  <div id="installAppFab" class="fab-install" style="display:none">
-    <i class="bi bi-download"></i>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/pouchdb@7.3.0/dist/pouchdb.min.js"></script>
+const CACHE_NAME = 'k3-app-shell-v5'; // <--- VERSI BARU: WAJIB DINAIKKAN
+const FILES_TO_CACHE = [
+  '/',
+  '/index.html',
+  // Jalur file lokal harus dimulai dengan / (root web = public/)
+  '/manifest.json',
+  '/router.js',
+  '/main.js',
+  '/db.js',
+  '/pages/dashboard.html', 
+  '/pages/input.html',
+  '/pages/rekap.html',
+  '/pages/grafik.html',
+  '/pages/users.html',
+  '/pages/settings.html',
+  // FIX 404 Ikon: Ikon harus di-cache dan ada di folder public/
+  '/favicon.ico',
+  '/icon-192.png', 
+  '/icon-512.png', 
   
-  <script src="https://cdn.jsdelivr.net/npm/pouchdb-find@7.3.0/dist/pouchdb.find.min.js"></script> 
-  
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  
-  <script src="./router.js"></script>
-  <script src="./db.js"></script>
-  <script src="./main.js"></script>
+  // CDN Links
+  'https://cdn.jsdelivr.net/npm/pouchdb@7.3.0/dist/pouchdb.min.js',
+  'https://cdn.jsdelivr.net/npm/pouchdb-find@7.3.0/dist/pouchdb.find.min.js', 
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
+  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css'
+];
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      // FIX: Menggunakan jalur absolut /sw.js karena public/ adalah root web
-      navigator.serviceWorker.register('/sw.js').then(()=>console.log('sw registered')).catch(e=>console.warn('sw fail', e));
-    }
+self.addEventListener('install', (evt) => {
+  evt.waitUntil(caches.open(CACHE_NAME).then((cache)=>cache.addAll(FILES_TO_CACHE)));
+  self.skipWaiting();
+});
 
-    let deferredPrompt;
-    const installFab = document.getElementById('installAppFab');
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      installFab.style.display = 'flex';
-    });
-    installFab.addEventListener('click', async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice.outcome === 'accepted') installFab.style.display = 'none';
-      deferredPrompt = null;
-    });
-    window.addEventListener('appinstalled', ()=>{ installFab.style.display='none'; alert('Aplikasi terpasang'); });
+self.addEventListener('activate', (evt) => {
+  // Hapus cache lama
+  evt.waitUntil(
+    caches.keys().then((keyList) => {
+      return Promise.all(keyList.map((key) => {
+        if (key !== CACHE_NAME) {
+          return caches.delete(key);
+        }
+      }));
+    })
+  );
+  evt.waitUntil(self.clients.claim());
+});
 
-    window.addEventListener('load', () => {
-        router.navigateTo(location.hash.substring(1).split('?')[0] || 'dashboard');
-    });
-    window.addEventListener('hashchange', () => {
-        router.navigateTo(location.hash.substring(1).split('?')[0]);
-    });
-  </script>
-</body>
-</html>
+self.addEventListener('fetch', (evt) => {
+  if (evt.request.method !== 'GET') return;
+  evt.respondWith(
+    caches.match(evt.request).then(resp => resp || fetch(evt.request).catch(()=>caches.match('/index.html')))
+  );
+});
