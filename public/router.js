@@ -1,4 +1,5 @@
-// router.js
+// router.js (VERSION FIXED & STABLE)
+
 const pages = {
     dashboard: { title: 'Dashboard', subtitle: 'Ringkasan Statistik Inspeksi' },
     input: { title: 'Input Inspeksi', subtitle: 'Form Inspeksi Baru' },
@@ -14,77 +15,79 @@ const titleElement = document.getElementById('pageTitle');
 const subtitleElement = document.getElementById('pageSubtitle');
 
 window.router = {
-    /**
-     * Navigasi ke halaman tertentu dan muat kontennya.
-     * @param {string} pageName - Nama halaman (e.g., 'dashboard', 'input').
-     * @param {Object} [params] - Parameter URL opsional ({id: '123'}).
-     */
+
     navigateTo: async function(pageName, params = {}) {
-        const pageKey = pageName.toLowerCase().split('?')[0]; // Ambil key tanpa params
-        const pageInfo = pages[pageKey];
+        const pageKey = pageName.toLowerCase().split('?')[0];
+
+        // FIX 1 — jangan pakai const
+        let pageInfo = pages[pageKey];
 
         if (!pageInfo) {
-            pageName = 'dashboard'; // Fallback
+            pageName = 'dashboard';
             pageInfo = pages.dashboard;
         }
 
         try {
-            // 1. Update URL Hash dengan parameter jika ada
-            let hash = `#${pageKey}`;
-            const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
-            
-            // Tambahkan params baru ke hash
-            for (const key in params) {
-                if (params.hasOwnProperty(key)) {
-                    urlParams.set(key, params[key]);
-                }
-            }
-            if (urlParams.toString()) {
-                hash += `?${urlParams.toString()}`;
-            }
-            // Mencegah pushState jika hash sudah sama (penting untuk menghindari loop)
-            if (window.location.hash !== hash) {
-                window.history.pushState(null, null, hash);
+            // Update URL hash tanpa infinite loop
+            let newHash = '#' + pageKey;
+            const urlParams = new URLSearchParams();
+
+            for (const k in params) urlParams.set(k, params[k]);
+            const paramStr = urlParams.toString();
+            if (paramStr) newHash += '?' + paramStr;
+
+            if (window.location.hash !== newHash) {
+                window.history.pushState({}, '', newHash);
             }
 
-            // 2. Load Content
+            // Load page html
             const res = await fetch(`./pages/${pageKey}.html`);
             if (!res.ok) {
-                contentContainer.innerHTML = `<div class="alert alert-danger">Halaman **${pageKey}** tidak ditemukan (404).</div>`;
-                titleElement.innerText = 'Error 404';
+                contentContainer.innerHTML =
+                    `<div class="alert alert-danger">Halaman tidak ditemukan: ${pageKey}</div>`;
+                titleElement.innerText = '404 Not Found';
                 subtitleElement.innerText = '';
                 return;
             }
-            
+
             const html = await res.text();
-            
-            // 3. Update UI
             contentContainer.innerHTML = html;
+
+            // Update header
             titleElement.innerText = pageInfo.title;
             subtitleElement.innerText = pageInfo.subtitle;
 
-            // 4. Panggil inisialisasi dari main.js
-            if (window.onPageLoaded) {
-                window.onPageLoaded(pageKey);
-            }
-            
-        } catch (error) {
-            console.error('Error loading page:', error);
-            contentContainer.innerHTML = `<div class="alert alert-danger">Gagal memuat halaman: ${error.message}</div>`;
+            // Panggil init dari main.js
+            if (window.onPageLoaded) window.onPageLoaded(pageKey);
+
+        } catch (err) {
+            contentContainer.innerHTML =
+                `<div class="alert alert-danger">Gagal memuat halaman: ${err.message}</div>`;
+            console.error(err);
         }
     },
-    
-    /**
-     * Mendapatkan parameter dari URL Hash saat ini.
-     */
+
+    // Ambil parameter dari hash
     getCurrentParams: function() {
         const hash = window.location.hash.split('?')[1];
         if (!hash) return {};
-        const params = {};
-        const urlParams = new URLSearchParams(hash);
-        for (const [key, value] of urlParams.entries()) {
-            params[key] = value;
-        }
-        return params;
+        const p = {};
+        const url = new URLSearchParams(hash);
+        url.forEach((v, k) => p[k] = v);
+        return p;
     }
 };
+
+// FIX 2 — load halaman pertama dari hash otomatis
+window.addEventListener('load', () => {
+    const hash = window.location.hash.replace('#', '') || 'dashboard';
+    const page = hash.split('?')[0];
+    router.navigateTo(page);
+});
+
+// FIX 3 — back/forward browser bekerja benar
+window.addEventListener('popstate', () => {
+    const hash = window.location.hash.replace('#', '') || 'dashboard';
+    const page = hash.split('?')[0];
+    router.navigateTo(page);
+});
