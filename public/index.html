@@ -53,14 +53,14 @@
   <script src="https://cdn.jsdelivr.net/npm/pouchdb@8.0.1/dist/pouchdb.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pouchdb-find@8.0.1/dist/pouchdb.find.min.js"></script>
   
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
   <script src="db.js"></script>
   
   <script src="router.js"></script>
   
   <script src="main.js"></script>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <script>
     if ('serviceWorker' in navigator) {
@@ -72,10 +72,11 @@
     }
     // Initial load, navigasi ke Dashboard
     window.addEventListener('load', () => {
-        router.navigateTo(location.hash.substring(1) || 'dashboard');
+        // Fix: Menggunakan location.hash.substring(1) untuk menghindari 'dashboard' jika hash kosong
+        router.navigateTo(location.hash.substring(1).split('?')[0] || 'dashboard');
     });
     window.addEventListener('hashchange', () => {
-        router.navigateTo(location.hash.substring(1));
+        router.navigateTo(location.hash.substring(1).split('?')[0]);
     });
   </script>
 </body>

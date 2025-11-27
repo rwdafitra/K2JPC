@@ -1,42 +1,39 @@
-// db.js - initialize local PouchDB and export helpers (VERSI FINAL TERLENGKAP)
+// db.js - initialize local PouchDB and export helpers (VERSI FINAL TERLENGKAP DAN ROBUST)
 const DB_NAME = 'inspeksi_k3'; 
 const db = new PouchDB(DB_NAME);
 
 // API URL untuk PUSH/PULL data melalui server Express
 const API_URL = '/api/inspeksi'; 
-const API_USER_URL = '/api/users'; // URL API baru untuk User
+const API_USER_URL = '/api/users'; 
 
 // Inisialisasi DB (Pastikan index ada untuk pencarian cepat)
-db.createIndex({ index: { fields: ['type', 'created_at'] } });
-db.createIndex({ index: { fields: ['type', 'deleted'] } }); // Untuk user dan soft delete
+// FIX: Membungkus createIndex dengan catch agar script tidak crash jika plugin pouchdb-find gagal dimuat
+db.createIndex({ index: { fields: ['type', 'created_at'] } }).catch(err => console.warn("PouchDB Index (created_at) failed to create.", err.message));
+db.createIndex({ index: { fields: ['type', 'deleted'] } }).catch(err => console.warn("PouchDB Index (deleted) failed to create.", err.message));
 
-// Export konfigurasi
-window._k3db = { db, API_URL, API_USER_URL };
 
 /**
  * Save inspection document (with optional attachments)
- * @param {object} doc - inspection doc
- * @param {array} attachments - [{type: 'image/jpeg', blob: Blob}]
  */
 async function saveInspection(doc, attachments = []) {
-  // Jika dokumen baru, tambahkan _id, created_at, dan is_draft
   if (!doc._id) {
     doc._id = 'ins_' + Date.now();
     doc.created_at = new Date().toISOString();
   }
   doc.type = 'inspection';
   doc.synced = false; 
-  doc.deleted = doc.deleted || false; // Pastikan flag delete ada
+  doc.deleted = doc.deleted || false; 
 
   try {
-    const res = await db.put(doc);
+    let res = await db.put(doc);
     
-    // add attachments (logic for attachments remains here)
     for (let i = 0; i < attachments.length; i++) {
       const att = attachments[i];
+      // Logic untuk attachment tetap ada
       await db.putAttachment(doc._id, `photo_${i}`, res.rev, att.type, att.blob).catch(async (e) => {
+        // Coba dapatkan rev terbaru jika putAttachment gagal
         const latest = await db.get(doc._id);
-        await db.putAttachment(doc._id, `photo_${i}`, latest._rev, att.type, att.blob);
+        res = await db.putAttachment(doc._id, `photo_${i}`, latest._rev, att.type, att.blob);
       });
     }
     return res;
@@ -64,11 +61,12 @@ async function listInspections(limit = 100) {
     });
     return found.docs;
   } catch (e) {
-    // Fallback jika index gagal
+    console.warn("listInspections failed with find(), falling back to allDocs.", e.message);
+    // Fallback jika index gagal atau find tidak tersedia
     const all = await db.allDocs({ include_docs: true, descending: true });
     return all.rows
         .map(r => r.doc)
-        .filter(d => d.type === 'inspection' && !d.deleted)
+        .filter(d => d && d.type === 'inspection' && !d.deleted)
         .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, limit);
   }
@@ -85,11 +83,10 @@ async function softDeleteInspection(id) {
 }
 
 
-// --- USER MANAGEMENT (BARU) ---
+// --- USER MANAGEMENT ---
 
 /**
  * Save or update user document
- * @param {object} userDoc - { username, name, role, status }
  */
 async function saveUser(userDoc) {
     if (!userDoc._id) {
@@ -115,11 +112,17 @@ async function saveUser(userDoc) {
  * List all active users
  */
 async function listUsers() {
-    const found = await db.find({ 
-        selector: { type: 'user', deleted: false }, 
-        sort: [{ name: 'asc' }]
-    });
-    return found.docs;
+    try {
+        const found = await db.find({ 
+            selector: { type: 'user', deleted: false }, 
+            sort: [{ name: 'asc' }]
+        });
+        return found.docs;
+    } catch (e) {
+        console.warn("listUsers failed with find(), falling back to allDocs.", e.message);
+        const all = await db.allDocs({ include_docs: true });
+        return all.rows.map(r => r.doc).filter(d => d && d.type === 'user' && !d.deleted);
+    }
 }
 
 // Export semua fungsi yang diperlukan

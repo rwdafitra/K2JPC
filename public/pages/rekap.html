@@ -1,45 +1,22 @@
-<div class="card mb-3 shadow-sm">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <strong>Daftar Lengkap Inspeksi (Lokal Cache)</strong>
-    <span id="rekapSyncBadge" class="badge bg-success">0 Belum Sync</span>
-  </div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-        <table id="rekapTable" class="table table-striped table-hover table-sm mb-0">
-            <thead class="table-dark">
-                <tr>
-                    <th>#</th>
-                    <th>Tgl. Inspeksi</th>
-                    <th>Lokasi</th>
-                    <th>Inspector</th>
-                    <th>Risiko</th>
-                    <th>Uraian Temuan</th>
-                    <th>Status</th>
-                    <th>Sync</th>
-                </tr>
-            </thead>
-            <tbody id="rekapTableBody">
-                <tr><td colspan="8" class="text-center">Memuat data...</td></tr>
-            </tbody>
-        </table>
+<div class="card">
+    <div class="card-header"><strong>Rekapitulasi Data Inspeksi</strong></div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-striped small mb-0">
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Inspector</th>
+                        <th>Lokasi/Area</th>
+                        <th>Uraian Temuan</th>
+                        <th>Risiko</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="rekapTableBody">
+                    </tbody>
+            </table>
+        </div>
     </div>
-  </div>
-  <div class="card-footer small text-muted">
-      Klik baris tabel untuk melihat detail, komentar, dan menutup temuan.
-  </div>
 </div>
-<script>
-    // Ini adalah script tambahan untuk menautkan setiap baris ke halaman detail
-    document.addEventListener('DOMContentLoaded', () => {
-        const tableBody = document.getElementById('rekapTableBody');
-        tableBody.addEventListener('click', (e) => {
-            let row = e.target.closest('tr');
-            if (row && row.dataset.docId) {
-                router.navigateTo(`detail?id=${row.dataset.docId}`);
-            }
-        });
-
-        // Perluas logika initRekap di main.js agar menambahkan data-doc-id
-        // Asumsi main.js sudah diperbarui untuk menyertakan data-docId pada <tr>
-    });
-</script>

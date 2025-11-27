@@ -1,4 +1,4 @@
-// server.js - Backend Express untuk melayani PWA dan API data
+// server.js - Backend Express untuk melayani PWA dan API data (VERSI FINAL)
 const express = require("express");
 const path = require("path");
 const PouchDB = require("pouchdb");
@@ -7,13 +7,11 @@ const PORT = process.env.PORT || 8080;
 
 // --- KONFIGURASI MIDDLEWARE ---
 app.use(express.json());
-// Melayani semua file PWA dari folder 'public'
 app.use(express.static(path.join(__dirname, 'public'))); 
 
 // --- KONFIGURASI DATABASE COUCHDB ---
 PouchDB.plugin(require("pouchdb-find"));
 
-// Logika robust untuk mencari URL CouchDB
 const ENV_VARS = ['COUCHDB_URL', 'DATABASE_URL', 'INSPEKSI_K3', 'inspeksi_k3', 'DB_URL'];
 let COUCHDB_URL_BASE;
 
@@ -28,11 +26,10 @@ for (const envName of ENV_VARS) {
 const DB_NAME = "inspeksi_k3"; 
 if (!COUCHDB_URL_BASE) {
     console.error("FATAL: Variabel lingkungan CouchDB tidak ditemukan!");
-    throw new Error("Koneksi CouchDB gagal.");
+    // throw new Error("Koneksi CouchDB gagal."); // Hindari crash saat deploy jika env belum siap, tapi log error
 }
 
-// Penanganan URL: memastikan nama DB ditambahkan dengan benar
-let connectionUrl = COUCHDB_URL_BASE.replace(/\/$/, ''); 
+let connectionUrl = COUCHDB_URL_BASE ? COUCHDB_URL_BASE.replace(/\/$/, '') : `http://localhost:5984`; 
 if (!connectionUrl.endsWith('/' + DB_NAME)) {
     connectionUrl = connectionUrl + '/' + DB_NAME;
 }
@@ -42,20 +39,31 @@ db.createIndex({ index: { fields: ['type', 'created_at'] } }).catch(err => conso
 db.info().then(info => console.log(`✅ Terhubung ke DB: ${info.db_name}. Dokumen: ${info.doc_count}`)).catch(err => console.error("🚨 GAGAL TERHUBUNG KE COUCHDB:", err.message));
 
 
-// --- API ENDPOINTS ---
+// --- API ENDPOINTS INSPEKSI ---
 
-// POST: Menerima data inspeksi baru (PUSH)
-app.post("/api/inspeksi", async (req, res) => {
-  let doc = { ...req.body };
-  delete doc._rev; 
-  if (!doc._id) doc._id = "ins_" + Date.now();
-  
-  try {
-    const response = await db.put(doc);
-    res.json({ success: true, id: response.id, rev: response.rev });
-  } catch (err) {
-    res.status(500).json({ error: "Gagal menyimpan data ke CouchDB.", details: err.message });
-  }
+// PUT: Create/Update data inspeksi (Digunakan untuk PUSH)
+app.put("/api/inspeksi/:id", async (req, res) => {
+    let doc = { ...req.body };
+    // Pastikan _id konsisten
+    if (!doc._id) doc._id = req.params.id;
+    if (!doc._id) return res.status(400).json({ error: "ID dokumen tidak ada." });
+
+    try {
+        // Coba ambil rev lama untuk update
+        const existing = await db.get(doc._id).catch(() => null);
+        if (existing) {
+            doc._rev = existing._rev;
+            // Jika dokumen ada dan di server belum deleted, pastikan flag deleted tidak ditimpa
+            if (existing.deleted) doc.deleted = true; 
+        } else {
+            delete doc._rev;
+        }
+
+        const response = await db.put(doc);
+        res.json({ success: true, id: response.id, rev: response.rev });
+    } catch (err) {
+        res.status(500).json({ error: "Gagal menyimpan/update data ke CouchDB.", details: err.message });
+    }
 });
 
 // GET: Mengambil semua data inspeksi yang TIDAK terhapus (PULL)
@@ -81,48 +89,15 @@ app.get("/api/inspeksi/:id", async (req, res) => {
     }
 });
 
-// PUT: Mengupdate status, komentar, atau data inspeksi
-app.put("/api/inspeksi/:id", async (req, res) => {
-    try {
-        const localDoc = await db.get(req.params.id);
-        const updatedDoc = {
-            ...localDoc, 
-            ...req.body,
-            _rev: localDoc._rev 
-        };
-
-        const response = await db.put(updatedDoc);
-        res.json({ success: true, id: response.id, rev: response.rev });
-
-    } catch (err) {
-        res.status(500).json({ error: "Gagal update dokumen di CouchDB.", details: err.message });
-    }
-});
-
-// DELETE (Soft Delete): Menandai inspeksi sebagai terhapus
-app.delete("/api/inspeksi/:id", async (req, res) => {
-    try {
-        const doc = await db.get(req.params.id);
-        doc.deleted = true; // Soft Delete
-        doc.synced = false; // Tandai untuk sync
-
-        const response = await db.put(doc);
-        res.json({ success: true, id: response.id, rev: response.rev });
-    } catch (err) {
-        res.status(500).json({ error: "Gagal menghapus dokumen (soft delete).", details: err.message });
-    }
-});
-
 // --- API USERS (BARU) ---
-// POST/PUT: Simpan atau Update User
+// PUT: Simpan atau Update User (Digunakan untuk PUSH)
 app.put("/api/users", async (req, res) => {
     const userDoc = req.body;
-    if (!userDoc._id) userDoc._id = 'user_' + userDoc.username;
+    if (!userDoc.username) return res.status(400).json({ error: "Username harus diisi." });
+    userDoc._id = 'user_' + userDoc.username;
     userDoc.type = 'user';
-    userDoc.synced = false;
 
     try {
-        // Coba ambil rev lama untuk update
         const existing = await db.get(userDoc._id).catch(() => null);
         if (existing) userDoc._rev = existing._rev;
 
@@ -133,7 +108,7 @@ app.put("/api/users", async (req, res) => {
     }
 });
 
-// GET: Ambil semua User
+// GET: Ambil semua User (PULL)
 app.get("/api/users", async (req, res) => {
     try {
         const result = await db.find({ selector: { type: 'user', deleted: { $ne: true } } });

@@ -1,4 +1,9 @@
-// main.js - handles page lifecycle, binds forms, renders charts & tables (VERSI FINAL TERLENGKAP)
+// main.js - handles page lifecycle, binds forms, renders charts & tables (VERSI FINAL ROBUST)
+
+/**
+ * Dipanggil oleh router.js setiap kali halaman baru dimuat.
+ * Bertanggung jawab memanggil fungsi inisialisasi halaman yang sesuai.
+ */
 window.onPageLoaded = function(page) {
     const user = getUserRole(); // Cek peran pengguna saat ini
     
@@ -7,48 +12,76 @@ window.onPageLoaded = function(page) {
     document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
     document.querySelector(`.sidebar a[data-page="${page}"]`)?.classList.add('active');
     
-    // Tampilkan/Sembunyikan menu berdasarkan peran
-    document.querySelector('.sidebar a[data-page="users"]').style.display = user.role === 'Manager' ? 'block' : 'none';
+    // RBAC: Tampilkan/Sembunyikan menu Users berdasarkan peran
+    const userMenu = document.querySelector('.sidebar a[data-page="users"]');
+    if (userMenu) userMenu.style.display = user.role === 'Manager' ? 'block' : 'none';
 
-    if (page === 'dashboard') initDashboard();
-    if (page === 'input') initInput(user); 
-    if (page === 'rekap') initRekap(user);
-    if (page === 'detail') initDetail(user); 
-    if (page === 'grafik') initGrafik();
-    if (page === 'users') initUsers(user);  
-    if (page === 'settings') initSettings();
+    // Panggil fungsi inisialisasi per halaman
+    try {
+        if (page === 'dashboard') initDashboard();
+        if (page === 'input') initInput(user); 
+        if (page === 'rekap') initRekap(user);
+        if (page === 'detail') initDetail(user); 
+        if (page === 'grafik') initGrafik();
+        if (page === 'users') initUsers(user);  
+        if (page === 'settings') initSettings();
+    } catch (e) {
+        console.error(`Error saat inisialisasi halaman ${page}:`, e);
+        // Tampilkan pesan error di konten jika terjadi kegagalan fatal
+        const content = qs('#content');
+        if(content) content.innerHTML = `<div class="alert alert-danger">Gagal memuat halaman **${page}**. Cek konsol browser untuk detail error.</div>`;
+    }
 };
 
-// common ui helpers
+// ------------------------------------
+// --- COMMON HELPERS & AUTH MOCK ---
+// ------------------------------------
+
 function qs(sel) { return document.querySelector(sel); }
 function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
 function isOnline() { return navigator.onLine; }
 
 function formatDate(isoString) {
     if (!isoString) return '-';
-    return new Date(isoString).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    // Gunakan try/catch untuk date parsing
+    try {
+        return new Date(isoString).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+        return isoString;
+    }
 }
 
-// --- AUTENTIKASI MOCK & RBAC (BARU) ---
+/**
+ * Mendapatkan atau membuat user default (Role Based Access Control)
+ */
 function getUserRole() {
     let user = JSON.parse(localStorage.getItem('currentUser') || 'null');
     // Jika user belum ada, set default Manager (untuk inisialisasi user pertama)
     if (!user) {
-        user = { username: 'manager', role: 'Manager', name: 'KTT Manager' };
+        user = { username: 'admin', role: 'Manager', name: 'KTT Manager' };
         localStorage.setItem('currentUser', JSON.stringify(user));
     }
     return user;
 }
 window.currentUser = getUserRole(); // Set global user
 
-// --- LOGIKA SINKRONISASI API BARU (PUSH & PULL SEMUA DOKUMEN) ---
 
+// ------------------------------------
+// --- LOGIKA SINKRONISASI API ---
+// ------------------------------------
+
+/**
+ * Mengirim data yang belum tersinkronisasi (synced: false) ke API Express. (PUSH)
+ * @param {'inspection'|'user'} type - Jenis dokumen yang akan diunggah
+ * @returns {number} Jumlah dokumen yang berhasil diunggah.
+ */
 async function pushDataToAPI(type) {
     if (!window._k3db || !isOnline()) return 0;
     let successCount = 0;
     const apiUrl = type === 'user' ? window._k3db.API_USER_URL : window._k3db.API_URL;
     
     try {
+        // Cari semua dokumen yang belum disinkronisasi
         const toSync = await window._k3db.db.find({ 
             selector: { type: type, synced: false }, 
             limit: 9999 
@@ -58,10 +91,12 @@ async function pushDataToAPI(type) {
         
         for (const doc of toSync.docs) {
             const docToSend = { ...doc };
-            delete docToSend._rev; 
+            delete docToSend._rev; // Hapus _rev agar CouchDB bisa menentukan rev baru saat update/put
             
-            // API PUT /api/users dan PUT /api/inspeksi/id menggunakan PUT untuk update/create
-            const res = await fetch(apiUrl + (type === 'inspection' ? `/${doc._id}` : ''), {
+            // PUT digunakan untuk create dan update di server
+            const url = apiUrl + (type === 'inspection' ? `/${doc._id}` : '');
+            
+            const res = await fetch(url, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(docToSend)
@@ -84,7 +119,10 @@ async function pushDataToAPI(type) {
     return successCount;
 }
 
-// PULL data Inspeksi dan User
+/**
+ * Menarik data terbaru dari API Express ke database lokal. (PULL)
+ * @param {'inspection'|'user'} type - Jenis dokumen yang akan ditarik
+ */
 async function pullDataFromAPI(type) {
     if (!window._k3db || !isOnline()) return;
     const apiUrl = type === 'user' ? window._k3db.API_USER_URL : window._k3db.API_URL;
@@ -96,49 +134,64 @@ async function pullDataFromAPI(type) {
         let remoteDocs = await res.json();
         if (!Array.isArray(remoteDocs)) return;
         
-        console.log(`PULL SUCCESS: Menerima ${remoteDocs.length} dokumen ${type} dari server.`);
-
         const docsToPut = [];
         for (const remoteDoc of remoteDocs) {
-            if (!remoteDoc._id) continue; // Pastikan ada _id
+            if (!remoteDoc._id) continue; 
             remoteDoc.synced = true;
             
             try {
+                // Cek apakah sudah ada di lokal untuk mendapatkan _rev
                 const localDoc = await window._k3db.db.get(remoteDoc._id);
                 remoteDoc._rev = localDoc._rev; 
             } catch (e) {
+                // Jika tidak ada di lokal, hapus _rev
                 delete remoteDoc._rev;
             }
             docsToPut.push(remoteDoc);
         }
 
         if (docsToPut.length > 0) {
+            // Gunakan bulkDocs untuk efisiensi
             await window._k3db.db.bulkDocs(docsToPut);
-            console.log(`Berhasil bulkDocs ${docsToPut.length} dokumen ${type}.`);
         }
     } catch (error) {
         console.error(`Error saat pullDataFromAPI (${type}):`, error);
-        if(type === 'inspection') alert(`Gagal menarik data inspeksi: ${error.message}`);
+        if(type === 'inspection') console.error(`Gagal menarik data inspeksi: ${error.message}`);
     } 
 }
 
+// Event listener untuk tombol Sync Now
 document.getElementById('btnSync')?.addEventListener('click', async () => {
     if (!isOnline()) return alert('Anda sedang offline. Sinkronisasi dibatalkan.');
     
-    // 1. PUSH & PULL USER
-    const pushUserCount = await pushDataToAPI('user');
-    await pullDataFromAPI('user');
+    if (!window._k3db) return alert("Sistem database lokal belum siap. Coba refresh halaman.");
 
-    // 2. PUSH & PULL INSPEKSI
-    const pushInspCount = await pushDataToAPI('inspection');
-    await pullDataFromAPI('inspection');
-    
-    let message = `Sinkronisasi selesai! User diunggah: ${pushUserCount}. Inspeksi diunggah: ${pushInspCount}. Data terbaru ditarik.`;
-    alert(message);
+    // Tampilkan loading/disable tombol
+    const btn = qs('#btnSync');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Syncing...`;
 
-    // Memaksa pemuatan ulang halaman saat ini
-    const currentPage = document.getElementById('content').getAttribute('data-page');
-    router.navigateTo(currentPage);
+    try {
+        // 1. PUSH & PULL USER
+        const pushUserCount = await pushDataToAPI('user');
+        await pullDataFromAPI('user');
+
+        // 2. PUSH & PULL INSPEKSI
+        const pushInspCount = await pushDataToAPI('inspection');
+        await pullDataFromAPI('inspection');
+        
+        let message = `Sinkronisasi selesai! User diunggah: ${pushUserCount}. Inspeksi diunggah: ${pushInspCount}. Data terbaru ditarik.`;
+        alert(message);
+    } catch (e) {
+        alert('Sinkronisasi gagal total. Cek log konsol.');
+        console.error(e);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-arrow-down-up me-1"></i> Sync Now`;
+        // Memaksa pemuatan ulang halaman saat ini untuk menampilkan data terbaru
+        const currentPage = document.getElementById('content').getAttribute('data-page') || 'dashboard';
+        router.navigateTo(currentPage);
+    }
 });
 
 
@@ -146,47 +199,68 @@ document.getElementById('btnSync')?.addEventListener('click', async () => {
 // --- LOGIKA PER PAGE INITIATION ---
 // ------------------------------------
 
-// initDashboard
+/**
+ * Dashboard: Menampilkan ringkasan statistik
+ */
 async function initDashboard() {
-    const docs = await window._k3db.listInspections();
-    const total = docs.length;
-    const open = docs.filter(d => d.status === 'Open').length;
-    const closed = docs.filter(d => d.status === 'Closed').length;
-    const critical = docs.filter(d => d.risk_score >= 15).length; // Contoh risk score tinggi
+    if (!window._k3db || !window._k3db.listInspections) return; 
 
-    qs('#kt-total').textContent = total;
-    qs('#kt-open').textContent = open;
-    qs('#kt-closed').textContent = closed;
-    qs('#kt-critical').textContent = critical;
-    qs('#lastSync').textContent = formatDate(new Date().toISOString());
+    try {
+        const docs = await window._k3db.listInspections();
+        const total = docs.length;
+        const open = docs.filter(d => d.status === 'Open').length;
+        const closed = docs.filter(d => d.status === 'Closed').length;
+        // Asumsi risk_score >= 15 adalah Critical
+        const critical = docs.filter(d => d.risk_score >= 15 && d.status === 'Open').length; 
 
-    if (total === 0) {
-        qs('#dashboardAlert').innerHTML = `<div class="alert alert-info small">Belum ada data inspeksi yang tersimpan secara lokal. Silakan input data.</div>`;
-    } else {
-        qs('#dashboardAlert').innerHTML = ``;
+        qs('#kt-total').textContent = total;
+        qs('#kt-open').textContent = open;
+        qs('#kt-closed').textContent = closed;
+        qs('#kt-critical').textContent = critical;
+        qs('#lastSync').textContent = formatDate(new Date().toISOString());
+
+        const dashboardAlert = qs('#dashboardAlert');
+        if (dashboardAlert) {
+            if (total === 0) {
+                dashboardAlert.innerHTML = `<div class="alert alert-info small">Belum ada data inspeksi yang tersimpan secara lokal. Silakan input data.</div>`;
+            } else {
+                dashboardAlert.innerHTML = ``;
+            }
+        }
+    } catch (e) {
+        console.error("Gagal inisialisasi Dashboard:", e);
+        qs('#kt-total').textContent = 'Error';
     }
 }
 
-// initInput (Sesuai Minerba)
+/**
+ * Input: Menyiapkan form input Inspeksi
+ */
 function initInput(user) {
+    // Asumsi form ID adalah #formMinerba
     const form = qs('#formMinerba');
     if (!form) return;
 
+    // FIX KRITIS: Set tanggal, inspector ID, dan nama inspector
+    const currentDate = new Date().toISOString().split('T')[0];
+    const dateInput = qs('#f_tanggal_inspeksi');
+    if (dateInput) dateInput.value = currentDate;
+    
     qs('#f_inspector').value = user.name;
     qs('#f_inspector').setAttribute('readonly', true);
     qs('#f_inspectorId').value = user.username;
     
     // Logic Risk Score Calculator
     function calculateRisk() {
-        const sev = parseInt(qs('#f_sev').value) || 0;
-        const like = parseInt(qs('#f_like').value) || 0;
+        const sev = parseInt(qs('#f_sev')?.value) || 0;
+        const like = parseInt(qs('#f_like')?.value) || 0;
         const score = sev * like;
         qs('#f_risk').value = score;
         qs('#f_risk_cat').value = score >= 15 ? 'HIGH' : (score >= 9 ? 'MEDIUM' : 'LOW');
     }
-    qs('#f_sev').addEventListener('input', calculateRisk);
-    qs('#f_like').addEventListener('input', calculateRisk);
-    calculateRisk(); // Initial calculation
+    qs('#f_sev')?.addEventListener('input', calculateRisk);
+    qs('#f_like')?.addEventListener('input', calculateRisk);
+    calculateRisk(); // Panggil pertama kali
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -204,38 +278,50 @@ function initInput(user) {
             likelihood: parseInt(qs('#f_like').value),
             risk_score: parseInt(qs('#f_risk').value),
             risk_category: qs('#f_risk_cat').value,
-            status: 'Open', // Default
+            status: 'Open', 
             komentar: [],
             gps: qs('#f_gps').value,
-            // new fields
             referensi_hukum: qs('#f_ref_hukum').value,
             target_tindak_lanjut: qs('#f_target_tl').value,
-            tanggal_inspeksi: new Date().toISOString().split('T')[0],
+            tanggal_inspeksi: qs('#f_tanggal_inspeksi').value, // Tanggal format YYYY-MM-DD
+            // Tambahan default field
+            type: 'inspection',
+            deleted: false
         };
 
+        // Konversi file ke base64 blob untuk PouchDB attachment
         const files = Array.from(qs('#f_photos').files);
         const attachments = await Promise.all(files.map(file => {
             return new Promise(resolve => {
                 const reader = new FileReader();
-                reader.onload = (e) => resolve({ type: file.type, blob: e.target.result.split(',')[1] });
+                reader.onload = (e) => resolve({ 
+                    type: file.type, 
+                    // Ambil hanya bagian base64 (setelah koma)
+                    blob: e.target.result.split(',')[1],
+                    filename: file.name
+                }); 
                 reader.readAsDataURL(file);
             });
         }));
 
         try {
             await window._k3db.saveInspection(doc, attachments);
-            alert('Inspeksi berhasil disimpan! Siap untuk sinkronisasi.');
+            alert('Inspeksi berhasil disimpan secara lokal! Jangan lupa Sync Now.');
             form.reset();
+            calculateRisk(); // Reset risk score display
             router.navigateTo('dashboard');
         } catch (error) {
             alert('Gagal menyimpan data lokal: ' + error.message);
-            console.error(error);
+            console.error('Error Save Inspection:', error);
         }
     });
 }
 
-// initRekap
+/**
+ * Rekap: Menampilkan daftar inspeksi
+ */
 async function initRekap(user) {
+    if (!window._k3db || !window._k3db.listInspections) return;
     const tableBody = qs('#rekapTableBody');
     if (!tableBody) return;
     
@@ -255,344 +341,377 @@ async function initRekap(user) {
 
         tableBody.innerHTML = filteredDocs.map(doc => `
             <tr>
-                <td>${formatDate(doc.created_at)}</td>
+                <td>${doc.tanggal_inspeksi}</td>
                 <td>${doc.inspector}</td>
                 <td>${doc.lokasi} - ${doc.area}</td>
-                <td>${doc.uraian_temuan.substring(0, 50)}...</td>
+                <td>${doc.uraian_temuan.substring(0, 50)}${doc.uraian_temuan.length > 50 ? '...' : ''}</td>
                 <td>${doc.risk_category} (${doc.risk_score})</td>
                 <td><span class="badge bg-${doc.status === 'Open' ? 'warning' : 'success'}">${doc.status}</span></td>
                 <td>
-                    <button class="btn btn-sm btn-info text-white me-1" onclick="router.navigateTo('detail', '${doc._id}')"><i class="bi bi-eye"></i></button>
-                    <button class="btn btn-sm btn-danger" onclick="window.exportPDF('${doc._id}', '${doc.lokasi} - ${doc.area}')"><i class="bi bi-file-earmark-pdf"></i></button>
+                    <button class="btn btn-sm btn-info text-white me-1" onclick="router.navigateTo('detail', {id: '${doc._id}'})"><i class="bi bi-eye"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="handleDelete('${doc._id}', '${doc.lokasi}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
         `).join('');
 
     } catch (e) {
         tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Gagal memuat data rekap: ${e.message}</td></tr>`;
+        console.error('Error initRekap:', e);
     }
 }
 
-// initDetail (Kompleks: Lihat, Komen, Edit, Delete)
+/**
+ * Detail: Menampilkan detail inspeksi dan mengelola komentar/TL
+ */
 async function initDetail(user) {
-    const id = router.getCurrentParams()?.id;
+    if (!window._k3db || !window._k3db.getInspection) return;
+    
+    // Mendapatkan ID dari hash URL
+    const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
+    const id = urlParams.get('id');
+
     const content = qs('#detailContent');
     const commentForm = qs('#commentForm');
 
     if (!id || !content || !commentForm) return router.navigateTo('dashboard');
-
-    // Ambil data
-    let doc;
-    try {
-        doc = await window._k3db.getInspection(id);
-    } catch (e) {
-        content.innerHTML = `<div class="alert alert-danger">Inspeksi tidak ditemukan.</div>`;
-        return;
-    }
-
-    const isManager = user.role === 'Manager';
-    const isOwner = user.username === doc.inspector_id;
-    const canEdit = isManager || (isOwner && doc.status === 'Open'); // Inspector hanya bisa edit kalau status masih Open
-
-    // Render detail
-    content.innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <h6>**Detail Temuan**</h6>
-                <table class="table table-sm small">
-                    <tr><th>ID Inspeksi</th><td>${doc._id}</td></tr>
-                    <tr><th>Tanggal</th><td>${formatDate(doc.created_at)}</td></tr>
-                    <tr><th>Inspector</th><td>${doc.inspector}</td></tr>
-                    <tr><th>Lokasi/Area</th><td>${doc.lokasi} / ${doc.area}</td></tr>
-                    <tr><th>Jenis Kegiatan</th><td>${doc.jenis_kegiatan}</td></tr>
-                    <tr><th>Kategori Temuan</th><td>${doc.kategori_temuan}</td></tr>
-                    <tr><th>Uraian Temuan</th><td><strong>${doc.uraian_temuan}</strong></td></tr>
-                    <tr><th>Rekomendasi TL</th><td>${doc.rekomendasi}</td></tr>
-                    <tr><th>Target TL</th><td>${doc.target_tindak_lanjut}</td></tr>
-                    <tr><th>Referensi Hukum</th><td>${doc.referensi_hukum}</td></tr>
-                    <tr><th>Risk Score</th><td><span class="badge bg-${doc.risk_score >= 15 ? 'danger' : (doc.risk_score >= 9 ? 'warning' : 'success')}">${doc.risk_category} (${doc.risk_score})</span></td></tr>
-                    <tr><th>Status</th><td><span class="badge bg-${doc.status === 'Open' ? 'warning' : 'success'}" id="detailStatus">${doc.status}</span></td></tr>
-                </table>
-                <div class="d-flex my-3">
-                    ${isManager ? `<button class="btn btn-sm btn-danger me-2" onclick="handleDelete('${doc._id}', '${doc.lokasi}')"><i class="bi bi-trash"></i> Delete</button>` : ''}
-                    ${canEdit ? `<button class="btn btn-sm btn-primary" onclick="handleEdit('${doc._id}')"><i class="bi bi-pencil"></i> Edit</button>` : ''}
-                </div>
-            </div>
-            <div class="col-md-6">
-                <h6>**Foto & Bukti**</h6>
-                <div id="photoContainer" class="row">
-                    </div>
-                ${canEdit ? `
-                    <h6 class="mt-3">Ganti Status</h6>
-                    <select id="statusUpdater" class="form-select form-select-sm mb-3">
-                        <option value="Open" ${doc.status === 'Open' ? 'selected' : ''}>Open</option>
-                        <option value="Closed" ${doc.status === 'Closed' ? 'selected' : ''}>Closed</option>
-                    </select>
-                ` : ''}
-            </div>
-        </div>
-        <div class="row mt-3"><div class="col-12"><h6 class="pb-2 border-bottom">Riwayat Komentar & Tindak Lanjut</h6><div id="commentList"></div></div></div>
-    `;
     
-    // Load Attachments
-    const photoContainer = qs('#photoContainer');
-    if (doc._attachments) {
-        for (const key in doc._attachments) {
-            if (key.startsWith('photo_')) {
-                const blob = await window._k3db.db.getAttachment(doc._id, key);
-                const url = URL.createObjectURL(blob);
-                photoContainer.innerHTML += `<div class="col-6 mb-2"><img src="${url}" class="img-fluid rounded shadow-sm" loading="lazy"></div>`;
+    // Fungsi pembantu untuk merender ulang konten
+    const renderDetail = async () => {
+        try {
+            const doc = await window._k3db.getInspection(id);
+            const isOwner = doc.inspector_id === user.username;
+            const canEdit = isOwner || user.role === 'Manager'; // Hanya pemilik atau manager yang bisa edit status/komentar
+            
+            // Render Detail Utama
+            let html = `
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <strong>Detail Inspeksi: ${doc.lokasi} - ${doc.area}</strong>
+                        <span class="badge bg-${doc.status === 'Open' ? 'warning' : 'success'} float-end">${doc.status}</span>
+                    </div>
+                    <div class="card-body small">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Inspector:</strong> ${doc.inspector} (${doc.inspector_id})</p>
+                                <p><strong>Tanggal:</strong> ${doc.tanggal_inspeksi}</p>
+                                <p><strong>Jenis Kegiatan:</strong> ${doc.jenis_kegiatan}</p>
+                                <p><strong>Kategori Temuan:</strong> ${doc.kategori_temuan}</p>
+                                <p><strong>Uraian Temuan:</strong> ${doc.uraian_temuan}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Risiko:</strong> ${doc.risk_category} (S:${doc.severity} x L:${doc.likelihood} = ${doc.risk_score})</p>
+                                <p><strong>Rekomendasi TL:</strong> ${doc.rekomendasi}</p>
+                                <p><strong>Target TL:</strong> ${doc.target_tindak_lanjut || '-'}</p>
+                                <p><strong>Referensi Hukum:</strong> ${doc.referensi_hukum || '-'}</p>
+                                <p><strong>GPS:</strong> ${doc.gps || '-'}</p>
+                            </div>
+                        </div>
+                        <h6 class="border-bottom pb-1 mt-3">Bukti Foto (${doc._attachments ? Object.keys(doc._attachments).length : 0})</h6>
+                        <div class="row" id="photoContainer">
+                            </div>
+                        <h6 class="border-bottom pb-1 mt-3">Tindak Lanjut & Komentar</h6>
+                        <ul class="list-group list-group-flush small" id="commentList">
+                            ${doc.komentar && doc.komentar.length > 0 ? doc.komentar.map(c => `<li class="list-group-item"><strong>${c.user} (${c.role}):</strong> ${c.text} <span class="text-muted float-end">${formatDate(c.date)}</span></li>`).join('') : '<li class="list-group-item text-muted">Belum ada catatan tindak lanjut.</li>'}
+                        </ul>
+                    </div>
+                    <div class="card-footer text-end">
+                        <button class="btn btn-sm btn-danger me-2" onclick="handleDelete('${doc._id}', '${doc.lokasi}')" ${!canEdit ? 'disabled' : ''}>
+                            <i class="bi bi-trash"></i> Hapus Lokal
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="window.exportPDF('${doc._id}', '${doc.lokasi} - ${doc.area}')">
+                            <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                        </button>
+                        ${doc.status === 'Open' && canEdit ? `
+                            <button class="btn btn-sm btn-success ms-2" id="btnMarkClosed">
+                                <i class="bi bi-check2-circle"></i> Tandai Selesai
+                            </button>` : ''}
+                    </div>
+                </div>
+            `;
+            content.innerHTML = html;
+            
+            // Load dan render attachments
+            const photoContainer = qs('#photoContainer');
+            if (doc._attachments && photoContainer) {
+                for (const attName in doc._attachments) {
+                    const att = doc._attachments[attName];
+                    const blob = await window._k3db.db.getAttachment(id, attName);
+                    const url = URL.createObjectURL(blob);
+                    
+                    photoContainer.innerHTML += `
+                        <div class="col-md-4 mb-2">
+                            <a href="${url}" target="_blank">
+                                <img src="${url}" class="img-fluid rounded shadow-sm" alt="Bukti Temuan">
+                            </a>
+                        </div>
+                    `;
+                }
             }
+
+            // Bind Mark Closed button
+            qs('#btnMarkClosed')?.addEventListener('click', async () => {
+                if (confirm(`Anda yakin ingin menutup temuan ${doc.lokasi}?`)) {
+                    doc.status = 'Closed';
+                    doc.komentar.push({
+                        user: user.name,
+                        role: user.role,
+                        text: 'Temuan ditutup oleh ' + user.name,
+                        date: new Date().toISOString()
+                    });
+                    doc.synced = false;
+                    await window._k3db.db.put(doc);
+                    alert('Temuan berhasil ditutup secara lokal! Lakukan sinkronisasi.');
+                    renderDetail();
+                }
+            });
+
+        } catch (e) {
+            content.innerHTML = `<div class="alert alert-danger">Detail Inspeksi ID: ${id} tidak ditemukan. ${e.message}</div>`;
         }
-    }
-    if(photoContainer.innerHTML === '') photoContainer.innerHTML = `<div class="col-12"><div class="alert alert-light small">Tidak ada foto terlampir.</div></div>`;
-
-
-    // Render Comments
-    function renderComments() {
-        const commentList = qs('#commentList');
-        commentList.innerHTML = (doc.komentar || []).map(k => `
-            <div class="card card-body bg-light mb-2 small">
-                <p class="mb-1">${k.text}</p>
-                <footer class="blockquote-footer m-0">${k.by} pada ${formatDate(k.at)}</footer>
-            </div>
-        `).join('') || '<p class="text-muted small">Belum ada komentar atau tindak lanjut.</p>';
-    }
-    renderComments();
-
-
-    // Event Listener Ganti Status
-    qs('#statusUpdater')?.addEventListener('change', async (e) => {
-        const newStatus = e.target.value;
-        if (confirm(`Yakin ingin mengubah status menjadi ${newStatus}?`)) {
-            try {
-                await window._k3db.db.put({ ...doc, status: newStatus, synced: false, _rev: doc._rev });
-                doc.status = newStatus; // Update lokal
-                qs('#detailStatus').textContent = newStatus;
-                qs('#detailStatus').className = `badge bg-${newStatus === 'Open' ? 'warning' : 'success'}`;
-                alert('Status berhasil diupdate. Segera lakukan sinkronisasi.');
-            } catch (error) {
-                alert('Gagal update status: ' + error.message);
-            }
-        }
-    });
-
-    // Event Listener Tambah Komentar
-    commentForm.onsubmit = async (e) => {
+    };
+    
+    // Bind Form Komentar
+    commentForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const commentText = qs('#f_comment').value.trim();
         if (!commentText) return;
 
-        const newComment = {
-            by: user.name,
-            at: new Date().toISOString(),
-            text: commentText,
-        };
-
         try {
-            const latestDoc = await window._k3db.db.get(doc._id);
-            latestDoc.komentar = [...(latestDoc.komentar || []), newComment];
-            latestDoc.synced = false;
+            const doc = await window._k3db.getInspection(id);
+            doc.komentar = doc.komentar || [];
+            doc.komentar.push({
+                user: user.name,
+                role: user.role,
+                text: commentText,
+                date: new Date().toISOString()
+            });
+            doc.synced = false;
 
-            await window._k3db.db.put(latestDoc);
-            
-            doc.komentar = latestDoc.komentar; // Update data lokal untuk render
-            renderComments(); // Re-render
-            
+            await window._k3db.db.put(doc);
             qs('#f_comment').value = '';
-            alert('Komentar berhasil ditambahkan. Segera lakukan sinkronisasi.');
-
-        } catch (error) {
-            alert('Gagal menambahkan komentar: ' + error.message);
+            alert('Komentar berhasil ditambahkan secara lokal.');
+            renderDetail();
+        } catch (e) {
+            alert('Gagal menambahkan komentar: ' + e.message);
         }
-    };
+    });
+
+    renderDetail();
 }
 
-// Global Edit Handler (Simplifikasi: Kembali ke form input dengan data yang diisi)
-window.handleEdit = (id) => {
-    // Implementasi lengkap akan memerlukan loading data ke input.html
-    alert('Fitur edit memerlukan implementasi loading data ke form Input.');
-};
-
-// Global Delete Handler (Manager Only)
-window.handleDelete = async (id, lokasi) => {
-    if (confirm(`APAKAH ANDA YAKIN INGIN MENGHAPUS (Soft Delete) Inspeksi di ${lokasi}? Tindakan ini hanya bisa dilakukan Manager.`)) {
-        try {
-            await window._k3db.softDeleteInspection(id);
-            alert('Inspeksi berhasil dihapus (soft delete). Lakukan sinkronisasi untuk menghapus dari server.');
-            router.navigateTo('rekap');
-        } catch (error) {
-            alert('Gagal menghapus inspeksi: ' + error.message);
-        }
+/**
+ * Grafik: Placeholder untuk chart
+ */
+function initGrafik() {
+    // FIX KRITIS: Pastikan elemen target ada
+    const chartContainer = qs('#chartContainer');
+    if (!chartContainer) {
+        return console.warn("Element #chartContainer for Grafik not found. Check pages/grafik.html");
     }
-};
 
-// initUsers (Manajemen User oleh Manager)
+    // Logika grafik masih kosong
+    chartContainer.innerHTML = `<div class="alert alert-warning small">Logika rendering Grafik & Trend akan ditambahkan di pengembangan selanjutnya.</div>`;
+}
+
+/**
+ * Users: Manajemen User (Hanya untuk Manager)
+ */
 async function initUsers(user) {
+    if (!window._k3db || !window._k3db.listUsers) return;
     const content = qs('#usersContent');
     const userForm = qs('#userForm');
     const userTableBody = qs('#userTableBody');
 
     if (user.role !== 'Manager') {
-        content.innerHTML = `<div class="alert alert-danger">Akses ditolak. Hanya Manager yang dapat mengelola user.</div>`;
+        if(content) content.innerHTML = `<div class="alert alert-danger">Akses ditolak. Hanya Manager yang dapat mengelola user.</div>`;
         return;
     }
+    
+    // Fungsi untuk merender daftar user
+    const renderUsers = async () => {
+        try {
+            const users = await window._k3db.listUsers();
+            userTableBody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${u.name}</td>
+                    <td>${u.username}</td>
+                    <td>${u.role}</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="editUser('${u.username}')"><i class="bi bi-pencil"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            userTableBody.innerHTML = `<tr><td colspan="4" class="text-danger">Gagal memuat user: ${e.message}</td></tr>`;
+        }
+    };
 
-    // Render User List
-    async function renderUsers() {
-        const users = await window._k3db.listUsers();
-        userTableBody.innerHTML = users.map(u => `
-            <tr>
-                <td>${u.name}</td>
-                <td>${u.username}</td>
-                <td><span class="badge bg-${u.role === 'Manager' ? 'primary' : 'secondary'}">${u.role}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-secondary" onclick="editUser('${u.username}')"><i class="bi bi-pencil"></i> Edit</button>
-                </td>
-            </tr>
-        `).join('');
-    }
-    renderUsers();
-
-
-    // Event Listener Form
-    userForm.onsubmit = async (e) => {
+    // Form Submit
+    userForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const userDoc = {
-            username: qs('#f_uname').value.trim(),
-            name: qs('#f_name').value.trim(),
-            role: qs('#f_role').value,
-            status: 'Active',
-        };
+        const uname = qs('#f_uname').value.trim();
+        const name = qs('#f_name').value.trim();
+        const role = qs('#f_role').value;
 
-        if (!userDoc.username || !userDoc.name) return alert('Username dan Nama wajib diisi.');
-        userDoc._id = 'user_' + userDoc.username;
+        const userDoc = { username: uname, name, role };
 
         try {
             await window._k3db.saveUser(userDoc);
-            alert(`User ${userDoc.name} berhasil disimpan. Lakukan sinkronisasi.`);
+            alert('User berhasil disimpan/diperbarui secara lokal! Lakukan sinkronisasi.');
             userForm.reset();
+            qs('#f_uname').disabled = false;
             renderUsers();
         } catch (error) {
             alert('Gagal menyimpan user: ' + error.message);
         }
+    });
+
+    // Fungsi untuk mengisi form saat edit
+    window.editUser = async (username) => {
+        try {
+            const userDoc = await window._k3db.db.get('user_' + username);
+            qs('#f_uname').value = userDoc.username;
+            qs('#f_name').value = userDoc.name;
+            qs('#f_role').value = userDoc.role;
+            // Disable username saat mode edit
+            qs('#f_uname').disabled = true; 
+        } catch (e) {
+            alert('User tidak ditemukan.');
+        }
     };
 
-    // Mock Edit (Perlu implementasi lengkap jika diperlukan)
-    window.editUser = (username) => {
-        alert(`Fungsi Edit User untuk ${username} memerlukan implementasi lanjutan.`);
-    };
+    renderUsers();
 }
 
-
-// initGrafik
-function initGrafik() {
-    // Logika grafik masih kosong
-    qs('#chartContainer').innerHTML = `<div class="alert alert-warning small">Logika rendering Grafik & Trend akan ditambahkan di pengembangan selanjutnya.</div>`;
-}
-
-// initSettings
+/**
+ * Settings: Info dan opsi sync manual
+ */
 function initSettings() {
     // Fungsi pull manual
     qs('#btnManualPull')?.addEventListener('click', async () => {
+      if (!isOnline()) return alert('Anda sedang offline.');
+      alert('Memulai proses tarik data...');
       await pullDataFromAPI('inspection');
       await pullDataFromAPI('user');
-      alert('Proses tarik data selesai.');
+      alert('Proses tarik data selesai. Silakan cek halaman Rekap.');
     });
 }
 
-// --- PDF EXPORT (BARU) ---
-window.exportPDF = async (id, title) => {
-    const doc = await window._k3db.getInspection(id);
-    if (!doc) return alert('Data tidak ditemukan untuk di-export.');
 
-    const pdfContent = `
-        <style>
-            .pdf-container { font-family: sans-serif; padding: 20px; font-size: 10px; }
-            h4 { text-align: center; margin-bottom: 5px; }
-            h6 { border-bottom: 1px solid #ccc; padding-bottom: 3px; margin-top: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-            th, td { border: 1px solid #ddd; padding: 5px; text-align: left; }
-            .signature-box { border: 1px solid #000; padding: 20px; text-align: center; width: 30%; height: 80px; display: inline-block; margin: 10px 10px 0 0;}
-        </style>
-        <div class="pdf-container">
-            <h4>LAPORAN INSPEKSI TERENCANA K3 PERTAMBANGAN</h4>
-            <p style="text-align: center; font-size: 8px;">Sesuai Ketentuan Minerba</p>
-            
-            <h6>A. DATA ADMINISTRASI</h6>
-            <table>
-                <tr><th style="width: 30%;">ID Inspeksi</th><td>${doc._id}</td></tr>
-                <tr><th>Tanggal Inspeksi</th><td>${formatDate(doc.created_at)}</td></tr>
-                <tr><th>Inspector</th><td>${doc.inspector} (${doc.inspector_id})</td></tr>
-                <tr><th>Lokasi / Area</th><td>${doc.lokasi} / ${doc.area}</td></tr>
-                <tr><th>Jenis Kegiatan</th><td>${doc.jenis_kegiatan}</td></tr>
-                <tr><th>Referensi Hukum</th><td>${doc.referensi_hukum}</td></tr>
-                <tr><th>Risk Score (S x L)</th><td>${doc.risk_score} (${doc.risk_category})</td></tr>
-            </table>
+// ------------------------------------
+// --- GLOBAL ACTIONS ---
+// ------------------------------------
 
-            <h6>B. TEMUAN & REKOMENDASI</h6>
-            <table>
-                <tr><th style="width: 30%;">Kategori Temuan</th><td>${doc.kategori_temuan}</td></tr>
-                <tr><th>Uraian Temuan</th><td>${doc.uraian_temuan}</td></tr>
-                <tr><th>Rekomendasi Tindak Lanjut</th><td>${doc.rekomendasi}</td></tr>
-                <tr><th>Target Penyelesaian</th><td>${doc.target_tindak_lanjut}</td></tr>
-                <tr><th>Status</th><td>${doc.status}</td></tr>
-            </table>
-
-            <h6>C. RIWAYAT TINDAK LANJUT (Komentar)</h6>
-            <table>
-                <thead><tr><th>Waktu</th><th>Oleh</th><th>Keterangan</th></tr></thead>
-                <tbody>
-                    ${(doc.komentar || []).map(k => `
-                        <tr><td>${formatDate(k.at)}</td><td>${k.by}</td><td>${k.text}</td></tr>
-                    `).join('') || '<tr><td colspan="3">Tidak ada riwayat tindak lanjut.</td></tr>'}
-                </tbody>
-            </table>
-
-            <h6 style="margin-top: 30px;">D. TANDA TANGAN PERSETUJUAN</h6>
-            <div style="text-align: right; margin-top: 10px; margin-right: 50px;">
-                <p style="margin-bottom: 40px;">Disetujui oleh,</p>
-                <p><strong>(Nama Kepala Teknik Tambang)</strong></p>
-                <p>Kepala Teknik Tambang (KTT)</p>
-            </div>
-            
-            <p style="page-break-before: always;"></p>
-            <h6>E. LAMPIRAN FOTO</h6>
-            <div id="pdf-photo-container">
-                </div>
-        </div>
-    `;
-
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = pdfContent;
-    document.body.appendChild(tempDiv);
-    
-    // Load photos to HTML for canvas
-    const photoContainer = tempDiv.querySelector('#pdf-photo-container');
-    if (doc._attachments) {
-        for (const key in doc._attachments) {
-            if (key.startsWith('photo_')) {
-                const blob = await window._k3db.db.getAttachment(doc._id, key);
-                const url = URL.createObjectURL(blob);
-                photoContainer.innerHTML += `<div style="margin-bottom: 20px;"><img src="${url}" style="width: 100%; max-height: 400px; object-fit: contain;"></div>`;
-            }
-        }
-    } else {
-        photoContainer.innerHTML = '<p>Tidak ada foto terlampir.</p>';
+/**
+ * Menghapus dokumen (Soft Delete)
+ */
+window.handleDelete = async function(id, name) {
+    if (!window._k3db || !window._k3db.softDeleteInspection) return;
+    if (!confirm(`Anda yakin ingin menghapus temuan: ${name} (ID: ${id})? Data akan ditandai terhapus dan disinkronisasi ke server.`)) {
+        return;
     }
 
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF('p', 'pt', 'a4');
-    
-    // Convert HTML to Canvas and add to PDF
-    html2canvas(tempDiv, { scale: 2 }).then(canvas => {
-        const imgData = canvas.toDataURL('image/jpeg', 0.9);
-        const imgProps = pdf.getImageProperties(imgData);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    try {
+        await window._k3db.softDeleteInspection(id);
+        alert('Dokumen berhasil dihapus secara lokal (soft delete)! Lakukan sinkronisasi.');
+        router.navigateTo('rekap');
+    } catch (e) {
+        alert('Gagal menghapus dokumen: ' + e.message);
+        console.error('Error softDeleteInspection:', e);
+    }
+};
 
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`Inspeksi_${title.replace(/\s/g, '_')}_${new Date().toLocaleDateString()}.pdf`);
-        document.body.removeChild(tempDiv); // Clean up
-    });
+/**
+ * Export detail inspeksi ke PDF menggunakan jspdf dan html2canvas
+ */
+window.exportPDF = async function(id, title) {
+    if (!window.jspdf || !window.html2canvas) return alert('Library PDF Export belum dimuat.');
+    
+    // Simpan konten saat ini
+    const originalContent = qs('#content').innerHTML;
+    qs('#content').innerHTML = `
+        <div class="alert alert-info" id="pdfExportLoading">Memuat data untuk PDF...</div>
+        <div id="pdfContent" style="padding: 20px; background: white; width: 210mm; margin: auto;"></div>
+    `;
+
+    try {
+        const doc = await window._k3db.getInspection(id);
+        
+        // Render versi detail yang sederhana untuk PDF
+        const pdfHtml = `
+            <h4 style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px;">LAPORAN INSPEKSI K3</h4>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10pt;">
+                <tr><td style="width: 30%;"><strong>ID Temuan:</strong></td><td>${doc._id}</td></tr>
+                <tr><td><strong>Tanggal Inspeksi:</strong></td><td>${doc.tanggal_inspeksi}</td></tr>
+                <tr><td><strong>Inspector:</strong></td><td>${doc.inspector}</td></tr>
+                <tr><td><strong>Lokasi/Area:</strong></td><td>${doc.lokasi} / ${doc.area}</td></tr>
+                <tr><td><strong>Jenis Kegiatan:</strong></td><td>${doc.jenis_kegiatan}</td></tr>
+                <tr><td><strong>Status:</strong></td><td>${doc.status}</td></tr>
+            </table>
+            <h5 style="margin-top: 20px;">Uraian Temuan</h5>
+            <div style="border: 1px solid #ccc; padding: 10px; font-size: 10pt;">${doc.uraian_temuan}</div>
+
+            <h5 style="margin-top: 20px;">Analisis Risiko</h5>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 10pt;">
+                <tr><td style="width: 30%;"><strong>Severity (S):</strong></td><td>${doc.severity}</td></tr>
+                <tr><td><strong>Likelihood (L):</strong></td><td>${doc.likelihood}</td></tr>
+                <tr><td><strong>Risk Score:</strong></td><td>${doc.risk_score} (${doc.risk_category})</td></tr>
+            </table>
+
+            <h5 style="margin-top: 20px;">Rekomendasi Tindak Lanjut</h5>
+            <div style="border: 1px solid #ccc; padding: 10px; font-size: 10pt;">${doc.rekomendasi} (Target: ${doc.target_tindak_lanjut || '-'})</div>
+
+            <h5 style="margin-top: 20px;">Bukti Foto</h5>
+            <div id="pdfPhotoContainer" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+        `;
+        qs('#pdfContent').innerHTML = pdfHtml;
+        qs('#pdfExportLoading').textContent = "Memproses gambar...";
+
+        // Load images for PDF
+        const pdfPhotoContainer = qs('#pdfPhotoContainer');
+        if (doc._attachments) {
+            for (const attName in doc._attachments) {
+                const blob = await window._k3db.db.getAttachment(id, attName);
+                const url = URL.createObjectURL(blob);
+                pdfPhotoContainer.innerHTML += `<img src="${url}" style="width: 150px; height: 100px; object-fit: cover;">`;
+            }
+        }
+        
+        qs('#pdfExportLoading').textContent = "Mencetak PDF...";
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const element = qs('#pdfContent');
+        
+        const canvas = await html2canvas(element, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = 210; 
+        const pageHeight = 295;  
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+        let heightLeft = imgHeight;
+
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+        }
+
+        pdf.save(`Inspeksi-${title}-${doc.tanggal_inspeksi}.pdf`);
+        alert('PDF berhasil dibuat!');
+    } catch (e) {
+        alert('Gagal mengekspor PDF: ' + e.message);
+        console.error('Error Export PDF:', e);
+    } finally {
+        // Kembalikan konten asli
+        qs('#content').innerHTML = originalContent;
+        // Panggil ulang init untuk me-reload halaman
+        const currentPage = document.getElementById('content').getAttribute('data-page') || 'dashboard';
+        router.navigateTo(currentPage);
+    }
 };

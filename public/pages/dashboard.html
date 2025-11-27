@@ -1,7 +1,9 @@
+<div id="dashboardAlert"></div>
+
 <div class="row mb-3">
   <div class="col-md-3 col-6 mb-2">
     <div class="card p-3 shadow-sm">
-      <h6>Total Inspeksi (preview)</h6>
+      <h6>Total Inspeksi</h6>
       <h3 id="kt-total">0</h3>
       <div class="small text-muted">Update terakhir: <span id="lastSync">-</span></div>
     </div>
@@ -20,7 +22,7 @@
   </div>
   <div class="col-md-3 col-6 mb-2">
     <div class="card p-3 shadow-sm" style="border-left:6px solid #dc3545">
-      <h6>Critical</h6>
+      <h6>Critical (Risk ≥ 15)</h6>
       <h3 id="kt-critical">0</h3>
     </div>
   </div>
@@ -29,13 +31,9 @@
 <div class="card mb-3">
   <div class="card-body">
     <div class="row">
-      <div class="col-md-8">
-        <h6>Trend Temuan (7 hari)</h6>
-        <canvas id="chartTrend" height="120"></canvas>
-      </div>
-      <div class="col-md-4">
-        <h6>Top Areas</h6>
-        <ul class="list-group" id="topAreas"><li class="list-group-item">-</li></ul>
+      <div class="col-md-12">
+        <h6>Data Terkini (5 Terbaru)</h6>
+        <p class="small text-muted">Akan diisi dengan data rekap 5 terbaru.</p>
       </div>
     </div>
   </div>
