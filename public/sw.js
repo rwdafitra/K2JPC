@@ -1,4 +1,4 @@
-const CACHE_NAME = 'k3-app-shell-v3'; // UBAH VERSI CACHE UNTUK MEMAKSA UPDATE
+const CACHE_NAME = 'k3-app-shell-v4'; // UBAH VERSI CACHE UNTUK MEMAKSA UPDATE
 const FILES_TO_CACHE = [
   '/',
   '/index.html',
