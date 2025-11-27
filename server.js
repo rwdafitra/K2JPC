@@ -7,16 +7,15 @@ const PORT = process.env.PORT || 8080;
 
 // --- KONFIGURASI MIDDLEWARE ---
 app.use(express.json()); 
-app.use(express.static(path.join(__dirname))); // Melayani semua file PWA dari root
+// FIX KRITIS: Melayani semua file PWA dari folder 'public'
+app.use(express.static(path.join(__dirname, 'public'))); 
 
 // --- KONFIGURASI DATABASE COUCHDB ---
 PouchDB.plugin(require("pouchdb-find"));
 
-// Daftar variabel lingkungan yang mungkin mengandung URL CouchDB (Diperluas)
 const ENV_VARS = ['COUCHDB_URL', 'DATABASE_URL', 'INSPEKSI_K3', 'inspeksi_k3', 'DB_URL'];
 let COUCHDB_URL_BASE;
 
-// Cari URL koneksi dari variabel lingkungan
 for (const envName of ENV_VARS) {
     if (process.env[envName]) {
         COUCHDB_URL_BASE = process.env[envName];
@@ -31,10 +30,7 @@ if (!COUCHDB_URL_BASE) {
     throw new Error("Koneksi CouchDB gagal.");
 }
 
-// **PERBAIKAN KRITIS UNTUK URL KONEKSI**
-// 1. Hapus trailing slash (/) dari URL base
 let connectionUrl = COUCHDB_URL_BASE.replace(/\/$/, ''); 
-// 2. Jika nama database belum ada di ujung URL, tambahkan.
 if (!connectionUrl.endsWith('/' + DB_NAME)) {
     connectionUrl = connectionUrl + '/' + DB_NAME;
 }
@@ -46,7 +42,6 @@ db.info().then(info => console.log(`✅ Terhubung ke DB: ${info.db_name}. Dokume
 
 // --- API ENDPOINTS ---
 
-// POST: Menerima data inspeksi baru (PUSH)
 app.post("/api/inspeksi", async (req, res) => {
   let doc = { ...req.body };
   delete doc._rev; 
@@ -60,7 +55,6 @@ app.post("/api/inspeksi", async (req, res) => {
   }
 });
 
-// GET: Mengambil semua data inspeksi (PULL)
 app.get("/api/inspeksi", async (req, res) => {
   try {
     const result = await db.allDocs({ include_docs: true, descending: true });
@@ -73,7 +67,6 @@ app.get("/api/inspeksi", async (req, res) => {
   }
 });
 
-// GET: Mengambil data inspeksi berdasarkan ID (untuk detail page)
 app.get("/api/inspeksi/:id", async (req, res) => {
     try {
         const doc = await db.get(req.params.id);
@@ -83,16 +76,13 @@ app.get("/api/inspeksi/:id", async (req, res) => {
     }
 });
 
-// PUT: Mengupdate status atau menambahkan komentar (Tindak Lanjut)
 app.put("/api/inspeksi/:id", async (req, res) => {
     try {
         const localDoc = await db.get(req.params.id);
-        
-        // Gabungkan dokumen lama dengan perubahan baru
         const updatedDoc = {
             ...localDoc, 
             ...req.body,
-            _rev: localDoc._rev // Pastikan menggunakan _rev terbaru
+            _rev: localDoc._rev 
         };
 
         const response = await db.put(updatedDoc);
@@ -103,7 +93,6 @@ app.put("/api/inspeksi/:id", async (req, res) => {
     }
 });
 
-// GET: Endpoint MOCK untuk Daftar User
 const MOCK_USERS = [
     { id: 'usr_1', name: 'RW. Dafitra', role: 'Inspector', status: 'Active' },
     { id: 'usr_2', name: 'Bpk. Supervisor', role: 'Supervisor', status: 'Active' },
@@ -118,7 +107,8 @@ app.get("*", (req, res) => {
   if (req.path.includes('.')) {
     return res.status(404).send('Not Found');
   }
-  res.sendFile(path.join(__dirname, 'index.html'));
+  // FIX KRITIS: Mengarahkan ke index.html di dalam folder 'public'
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // --- START SERVER ---
