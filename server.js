@@ -1,68 +1,92 @@
-// server.js — FINAL POLISHED VERSION
+// server.js — FINAL VERSION WITH CONNECTION CHECKER & LOGS
 const express = require("express");
 const path = require("path");
 const PouchDB = require("pouchdb");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// Middleware Setup
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- MANUAL CORS MIDDLEWARE (Agar aman tanpa install paket tambahan) ---
+// --- MANUAL CORS (Agar PWA bisa akses dari HP/Web) ---
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*"); // Izinkan akses dari mana saja
+    res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
     next();
 });
 
+// Load Plugin PouchDB
 PouchDB.plugin(require("pouchdb-find"));
 
-// Database Server-side
-const COUCH_URL = process.env.COUCHDB_URL || process.env.DATABASE_URL || "inspeksi_db_level";
+// --- LOGIKA KONEKSI DATABASE ---
+// Prioritas: Variable COUCHDB_URL dari Railway -> Fallback ke nama lokal
+const TARGET_URL = process.env.COUCHDB_URL || process.env.DATABASE_URL || "inspeksi_k3_local_fallback";
 
-console.log("========================================");
-// Masking password di log agar aman saat dilihat di Railway
-const safeLog = COUCH_URL.replace(/:([^:@]+)@/, ':****@');
-console.log(`🔌 DATABASE TARGET: ${safeLog}`);
-console.log("========================================");
+console.log("\n============================================");
+console.log("🚀 MEMULAI PROSES KONEKSI DATABASE...");
 
-const db = new PouchDB(COUCH_URL);
+// Masking password agar aman di log
+const hiddenURL = TARGET_URL.replace(/:([^:@]+)@/, ':****@');
+console.log(`📡 URL TUJUAN: ${hiddenURL}`);
+
+// Inisialisasi DB
+const db = new PouchDB(TARGET_URL);
+
+// --- DETEKTIF KONEKSI (DIJALANKAN SAAT SERVER START) ---
+// Ini akan mengecek apakah server benar-benar bisa "melihat" database inspeksi_k3
+db.info().then(info => {
+    console.log("✅ KONEKSI SUKSES!");
+    console.log(`   - Nama Database: ${info.db_name}`);
+    console.log(`   - Jumlah Dokumen: ${info.doc_count}`);
+    console.log("   (Aplikasi siap menerima data Sync)");
+}).catch(err => {
+    console.error("❌ KONEKSI GAGAL / DATABASE TIDAK DITEMUKAN!");
+    console.error(`   - Error: ${err.message}`);
+    
+    if (TARGET_URL.includes("http")) {
+        console.error("   ⚠️  Cek Variable COUCHDB_URL di Railway.");
+        console.error("   ⚠️  Pastikan user/password benar dan database 'inspeksi_k3' sudah dibuat.");
+    } else {
+        console.error("   ⚠️  Server menggunakan penyimpanan file LOKAL (Bukan Cloud).");
+        console.error("   ⚠️  Data akan hilang saat restart jika tidak segera diperbaiki.");
+    }
+});
+console.log("============================================\n");
+
 
 // --- API ROUTES ---
 
 // 1. INSPEKSI (PUSH & PULL)
 app.put("/api/inspeksi/:id", async (req, res) => {
     try {
+        console.log(`📥 [PUSH] Menerima inspeksi: ${req.params.id}`);
         const doc = req.body;
         doc._id = req.params.id;
         try {
             const exist = await db.get(doc._id);
             doc._rev = exist._rev;
-        } catch(e) {} 
+        } catch(e) {} // Dokumen baru
+        
         const response = await db.put(doc);
-        console.log(`✅ Saved Inspeksi: ${doc._id}`);
+        console.log(`✅ [SAVED] Sukses simpan ke DB.`);
         res.json(response);
     } catch (err) {
-        console.error("❌ Error Save Inspeksi:", err.message);
+        console.error(`❌ [ERROR] Gagal simpan: ${err.message}`);
         res.status(500).json({ error: err.message });
     }
 });
 
 app.get("/api/inspeksi", async (req, res) => {
     try {
-        // PERBAIKAN: Gunakan allDocs + attachments: true agar foto ikut terdownload
         const result = await db.allDocs({ 
             include_docs: true, 
-            attachments: true, // PENTING: Agar foto turun ke client
+            attachments: true, 
             descending: true 
         });
-        
-        const docs = result.rows
-            .map(row => row.doc)
-            .filter(d => d.type === 'inspection' && !d.deleted);
-
-        console.log(`out Kirim ${docs.length} inspeksi ke client.`);
+        const docs = result.rows.map(row => row.doc).filter(d => d.type === 'inspection' && !d.deleted);
+        console.log(`📤 [PULL] Mengirim ${docs.length} dokumen ke client.`);
         res.json(docs);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -78,9 +102,8 @@ app.put("/api/users", async (req, res) => {
             const exist = await db.get(user._id);
             user._rev = exist._rev;
         } catch(e) {}
-        
         const response = await db.put(user);
-        console.log(`👤 Saved User: ${user.username}`);
+        console.log(`👤 [USER] Saved: ${user.username}`);
         res.json(response);
     } catch (err) {
         res.status(500).json({ error: err.message });
