@@ -1,6 +1,6 @@
-// public/db.js — FINAL FIXED & OPTIMIZED
+// public/db.js — STABLE VERSION (Fix Sort Error)
 
-const DB_NAME = 'minerba_k3_pro'; 
+const DB_NAME = 'minerba_k3_stable_v1'; 
 const REMOTE_API = '/api'; 
 
 // Init PouchDB
@@ -12,13 +12,17 @@ try {
     console.error("❌ PouchDB Failed:", e);
 }
 
-// REGISTER INDEXES
-// Kita pastikan index dibuat untuk 'type' + 'created_at' agar sorting berjalan mulus
+// 1. REGISTER INDEX KHUSUS SORTING
+// Kita buat index spesifik untuk 'created_at' agar sorting dijamin jalan
 if (db && typeof db.createIndex === 'function') {
     db.createIndex({
-        index: { fields: ['type', 'created_at'] }
-    }).then(() => console.log("✅ Index 'created_at' siap digunakan."))
-      .catch(err => console.warn("⚠️ Index warning:", err.message));
+        index: { 
+            fields: ['created_at'], // Index tunggal, paling aman untuk sorting
+            name: 'idx_date',
+            ddoc: 'idx_date'
+        }
+    }).then(() => console.log("✅ Index 'created_at' siap."))
+      .catch(console.warn);
 }
 
 const _k3db = {
@@ -26,7 +30,7 @@ const _k3db = {
 
     // --- INSPECTIONS ---
     async saveInspection(doc, attachments = []) {
-        if(!db) throw new Error("Database belum siap");
+        if(!db) throw new Error("DB not ready");
         
         if (!doc._id) {
             doc._id = `insp_${Date.now()}_${Math.floor(Math.random()*1000)}`;
@@ -43,15 +47,12 @@ const _k3db = {
 
         let res = await db.put(doc);
 
-        // Attachments
         if (attachments.length > 0) {
             const latest = await db.get(doc._id);
             let rev = latest._rev;
             for (let i = 0; i < attachments.length; i++) {
                 const att = attachments[i];
-                const attRes = await db.putAttachment(
-                    doc._id, `foto_${i+1}.jpg`, rev, att.blob, att.type
-                );
+                const attRes = await db.putAttachment(doc._id, `foto_${i+1}.jpg`, rev, att.blob, att.type);
                 rev = attRes.rev;
             }
             res = { ...res, rev: rev };
@@ -64,38 +65,40 @@ const _k3db = {
     },
 
     async listInspections(limit = 1000) {
-        // COBA QUERY DENGAN INDEX
+        if (!db) return [];
+
+        // STRATEGI BARU: Query + In-Memory Filter
+        // PouchDB kadang gagal jika selector terlalu kompleks dengan sort.
+        // Kita query berdasarkan 'created_at' (agar urut), lalu filter 'type' & 'deleted' di JS.
+        
         if (db.find) {
             try {
                 const res = await db.find({
                     selector: { 
-                        type: 'inspection',
-                        // FIX: Field sort WAJIB ada di selector agar index dipakai
-                        created_at: { $gt: null }, 
-                        deleted: { $ne: true } 
+                        created_at: { $gt: null } // Wajib ada untuk trigger sort
                     },
-                    sort: [{ created_at: 'desc' }],
-                    limit
+                    sort: [{ 'created_at': 'desc' }],
+                    use_index: 'idx_date', // Paksa pakai index tanggal
+                    limit: limit + 50 // Buffer extra untuk filtering
                 });
-                return res.docs;
+                
+                // Filter di memori (Lebih aman & cepat untuk PouchDB)
+                return res.docs
+                    .filter(d => d.type === 'inspection' && !d.deleted)
+                    .slice(0, limit);
+
             } catch(e) {
-                console.warn("⚠️ Query Index gagal, menggunakan fallback (AllDocs).", e.message);
+                console.warn("⚠️ Query Index gagal, fallback ke AllDocs:", e.message);
             }
         }
         
-        // FALLBACK MANUAL (Jika index bermasalah/belum siap)
+        // Fallback Manual
         const all = await db.allDocs({include_docs: true, descending: true});
         return all.rows
             .map(r => r.doc)
-            .filter(d => d.type === 'inspection' && !d.deleted) // Filter manual
+            .filter(d => d.type === 'inspection' && !d.deleted)
+            .sort((a,b) => new Date(b.created_at) - new Date(a.created_at)) // Pastikan urut manual
             .slice(0, limit);
-    },
-
-    async softDelete(id) {
-        const doc = await db.get(id);
-        doc.deleted = true;
-        doc.synced = false;
-        return await db.put(doc);
     },
 
     // --- USERS ---
@@ -113,13 +116,6 @@ const _k3db = {
     },
 
     async listUsers() {
-        if (db.find) {
-            try {
-                const res = await db.find({ selector: { type: 'user', deleted: { $ne: true } } });
-                return res.docs;
-            } catch(e) {}
-        }
-        // Fallback
         const all = await db.allDocs({include_docs: true});
         return all.rows.map(r => r.doc).filter(d => d.type === 'user' && !d.deleted);
     },
@@ -129,18 +125,24 @@ const _k3db = {
         doc.deleted = true; 
         return await db.put(doc);
     },
+    
+    async softDelete(id) {
+        const doc = await db.get(id);
+        doc.deleted = true;
+        doc.synced = false;
+        return await db.put(doc);
+    },
 
     // --- SYNC ---
     async sync() {
-        if(!navigator.onLine) throw new Error("Offline. Cek koneksi internet.");
+        if(!navigator.onLine) throw new Error("Offline.");
         let stats = { pushed: 0, pulled: 0 };
 
-        // 1. PUSH (Local -> Server)
-        // Gunakan fallback filter manual agar sync tidak macet karena index
+        // 1. PUSH
         const allDocs = await db.allDocs({include_docs: true});
         const toPush = allDocs.rows
             .map(r => r.doc)
-            .filter(d => d.synced === false && !d.deleted); // Hanya yg belum sync
+            .filter(d => d.synced === false && !d.deleted);
 
         for(const doc of toPush) {
             const payload = {...doc};
@@ -160,8 +162,8 @@ const _k3db = {
             }
         }
 
-        // 2. PULL (Server -> Local)
-        const pullData = async (url) => {
+        // 2. PULL
+        const pull = async (url) => {
             try {
                 const res = await fetch(url);
                 if(res.ok) {
@@ -177,12 +179,10 @@ const _k3db = {
                         stats.pulled++;
                     }
                 }
-            } catch(e) { console.warn("Pull fail:", url, e); }
+            } catch(e) { console.warn("Pull error", url); }
         };
-
-        await pullData(`${REMOTE_API}/users`);
-        await pullData(`${REMOTE_API}/inspeksi`);
-
+        await pull(`${REMOTE_API}/users`);
+        await pull(`${REMOTE_API}/inspeksi`);
         return stats;
     }
 };
