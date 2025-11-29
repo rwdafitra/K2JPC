@@ -1,15 +1,14 @@
-// server.js — FINAL VERSION WITH CONNECTION CHECKER & LOGS
+// server.js — FINAL DEBUGGER VERSION
 const express = require("express");
 const path = require("path");
 const PouchDB = require("pouchdb");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Middleware Setup
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- MANUAL CORS (Agar PWA bisa akses dari HP/Web) ---
+// CORS
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
@@ -17,60 +16,38 @@ app.use((req, res, next) => {
     next();
 });
 
-// Load Plugin PouchDB
 PouchDB.plugin(require("pouchdb-find"));
 
-// --- LOGIKA KONEKSI DATABASE ---
-// Prioritas: Variable COUCHDB_URL dari Railway -> Fallback ke nama lokal
+// Database Connection
 const TARGET_URL = process.env.COUCHDB_URL || process.env.DATABASE_URL || "inspeksi_k3_local_fallback";
+const safeLog = TARGET_URL.replace(/:([^:@]+)@/, ':****@');
 
 console.log("\n============================================");
-console.log("🚀 MEMULAI PROSES KONEKSI DATABASE...");
-
-// Masking password agar aman di log
-const hiddenURL = TARGET_URL.replace(/:([^:@]+)@/, ':****@');
-console.log(`📡 URL TUJUAN: ${hiddenURL}`);
-
-// Inisialisasi DB
+console.log(`🔌 URL DATABASE: ${safeLog}`);
 const db = new PouchDB(TARGET_URL);
 
-// --- DETEKTIF KONEKSI (DIJALANKAN SAAT SERVER START) ---
-// Ini akan mengecek apakah server benar-benar bisa "melihat" database inspeksi_k3
+// Cek status awal
 db.info().then(info => {
-    console.log("✅ KONEKSI SUKSES!");
-    console.log(`   - Nama Database: ${info.db_name}`);
-    console.log(`   - Jumlah Dokumen: ${info.doc_count}`);
-    console.log("   (Aplikasi siap menerima data Sync)");
-}).catch(err => {
-    console.error("❌ KONEKSI GAGAL / DATABASE TIDAK DITEMUKAN!");
-    console.error(`   - Error: ${err.message}`);
-    
-    if (TARGET_URL.includes("http")) {
-        console.error("   ⚠️  Cek Variable COUCHDB_URL di Railway.");
-        console.error("   ⚠️  Pastikan user/password benar dan database 'inspeksi_k3' sudah dibuat.");
-    } else {
-        console.error("   ⚠️  Server menggunakan penyimpanan file LOKAL (Bukan Cloud).");
-        console.error("   ⚠️  Data akan hilang saat restart jika tidak segera diperbaiki.");
-    }
-});
+    console.log(`✅ TERHUBUNG KE: ${info.db_name}`);
+    console.log(`📊 TOTAL DOKUMEN SAAT INI: ${info.doc_count}`);
+}).catch(e => console.error("❌ GAGAL KONEKSI:", e.message));
 console.log("============================================\n");
-
 
 // --- API ROUTES ---
 
-// 1. INSPEKSI (PUSH & PULL)
+// 1. INSPEKSI (PUSH)
 app.put("/api/inspeksi/:id", async (req, res) => {
     try {
-        console.log(`📥 [PUSH] Menerima inspeksi: ${req.params.id}`);
+        console.log(`📥 [PUSH] Menerima data: ${req.params.id}`);
         const doc = req.body;
         doc._id = req.params.id;
         try {
             const exist = await db.get(doc._id);
             doc._rev = exist._rev;
-        } catch(e) {} // Dokumen baru
+        } catch(e) {}
         
         const response = await db.put(doc);
-        console.log(`✅ [SAVED] Sukses simpan ke DB.`);
+        console.log(`✅ [SAVED] Sukses.`);
         res.json(response);
     } catch (err) {
         console.error(`❌ [ERROR] Gagal simpan: ${err.message}`);
@@ -78,22 +55,37 @@ app.put("/api/inspeksi/:id", async (req, res) => {
     }
 });
 
+// 2. INSPEKSI (PULL) - DENGAN LOG DETEKTIF
 app.get("/api/inspeksi", async (req, res) => {
     try {
-        const result = await db.allDocs({ 
-            include_docs: true, 
-            attachments: true, 
-            descending: true 
-        });
-        const docs = result.rows.map(row => row.doc).filter(d => d.type === 'inspection' && !d.deleted);
-        console.log(`📤 [PULL] Mengirim ${docs.length} dokumen ke client.`);
+        // Ambil SEMUA data mentah
+        const result = await db.allDocs({ include_docs: true, attachments: true, descending: true });
+        
+        // --- LOG LOGIKA FILTERING ---
+        const totalRaw = result.rows.length;
+        console.log(`\n🔍 [DEBUG PULL] Server menemukan ${totalRaw} dokumen mentah di CouchDB.`);
+        
+        if (totalRaw > 0 && totalRaw < 5) {
+            // Jika data sedikit, kita intip isinya di log server
+            result.rows.forEach(r => {
+                console.log(`   - Doc ID: ${r.id} | Type: ${r.doc.type} | Deleted: ${r.doc.deleted}`);
+            });
+        }
+
+        // Lakukan Filter
+        const docs = result.rows
+            .map(row => row.doc)
+            .filter(d => d.type === 'inspection' && !d.deleted);
+
+        console.log(`📤 [RESPONSE] Mengirim ${docs.length} dokumen valid ke HP.\n`);
         res.json(docs);
     } catch (err) {
+        console.error("Pull Error:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// 2. USERS (PUSH & PULL)
+// 3. USERS (PUSH & PULL)
 app.put("/api/users", async (req, res) => {
     try {
         const user = req.body;
@@ -105,9 +97,7 @@ app.put("/api/users", async (req, res) => {
         const response = await db.put(user);
         console.log(`👤 [USER] Saved: ${user.username}`);
         res.json(response);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get("/api/users", async (req, res) => {
@@ -115,14 +105,8 @@ app.get("/api/users", async (req, res) => {
         const result = await db.allDocs({ include_docs: true });
         const users = result.rows.map(r => r.doc).filter(d => d.type === 'user');
         res.json(users);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// SPA Fallback
-app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
+app.get("*", (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
