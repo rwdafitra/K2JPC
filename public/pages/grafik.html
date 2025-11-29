@@ -1,58 +1,39 @@
-<!-- pages/grafik.html -->
-<div class="container">
-  <h4>Grafik & Trend Risiko</h4>
-  <p class="small text-muted">Visualisasi ringkas: distribusi risk category dan tren temuan.</p>
+<div class="container-fluid">
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+      <h5 class="card-title fw-bold text-primary">Analisa Risiko & Tren</h5>
+      <p class="text-muted small">Visualisasi data inspeksi berdasarkan tingkat risiko dan status penyelesaian.</p>
+    </div>
+  </div>
 
-  <div id="chartContainer" style="min-height:300px;" class="card p-3">
-    <div id="chartMessage" class="small text-muted">Grafik akan dimuat di sini.</div>
-    <canvas id="riskChart" style="max-height:400px;"></canvas>
+  <div id="chartContainer" class="row g-4">
+    <div class="col-md-6">
+      <div class="card h-100 shadow-sm border-0">
+        <div class="card-header bg-white fw-bold border-0">
+            <i class="bi bi-bar-chart-fill me-2 text-warning"></i>Distribusi Risiko (Risk Profile)
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center" style="min-height: 300px;">
+           <canvas id="chartRisk"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card h-100 shadow-sm border-0">
+        <div class="card-header bg-white fw-bold border-0">
+            <i class="bi bi-pie-chart-fill me-2 text-success"></i>Status Temuan
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center" style="min-height: 300px;">
+           <div style="width: 80%; max-width: 350px;">
+             <canvas id="chartStatus"></canvas>
+           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="chartLoading" class="text-center py-5 text-muted">
+     <span class="spinner-grow spinner-grow-sm text-secondary" role="status"></span>
+     Memproses data grafik...
   </div>
 </div>
-
-<script>
-  // Basic chart rendering using Chart.js if tersedia; otherwise placeholder
-  async function renderGrafik() {
-    try {
-      const docs = await window._k3db.listInspections(9999);
-      if (!docs || docs.length === 0) {
-        document.getElementById('chartMessage').textContent = 'Tidak ada data untuk menggambar grafik.';
-        return;
-      }
-
-      // counting categories
-      const counts = { HIGH:0, MEDIUM:0, LOW:0, UNKNOWN:0 };
-      docs.forEach(d => {
-        const cat = d.risk_category || 'UNKNOWN';
-        if (counts[cat] === undefined) counts.UNKNOWN++;
-        else counts[cat]++;
-      });
-
-      // try to use Chart.js (lazy load CDN if not present)
-      if (!window.Chart) {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-        document.head.appendChild(s);
-        s.onload = () => drawChart(counts);
-      } else {
-        drawChart(counts);
-      }
-    } catch (e) {
-      document.getElementById('chartMessage').textContent = 'Gagal memuat grafik: ' + e.message;
-    }
-  }
-
-  function drawChart(counts) {
-    const ctx = document.getElementById('riskChart').getContext('2d');
-    const labels = Object.keys(counts);
-    const data = labels.map(l => counts[l]);
-    if (window._riskChart) window._riskChart.destroy();
-    window._riskChart = new Chart(ctx, {
-      type: 'pie',
-      data: { labels, datasets: [{ data }] },
-      options: { responsive:true }
-    });
-    document.getElementById('chartMessage').style.display = 'none';
-  }
-
-  setTimeout(renderGrafik, 200);
-</script>

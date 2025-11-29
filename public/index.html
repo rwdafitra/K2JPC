@@ -2,86 +2,129 @@
 <html lang="id">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Inspeksi K3 - Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Sistem Inspeksi Minerba - K3</title>
 
-  <!-- Bootstrap (CSS) & Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
 
-  <!-- PWA -->
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/favicon.ico" />
 
   <style>
-    body { min-height:100vh; display:flex; flex-direction:column; }
-    .app-shell { display:flex; flex:1; }
-    .sidebar { width:220px; border-right:1px solid #e9ecef; padding:10px; }
-    .content-area { flex:1; padding:16px; }
-    .sidebar a { display:block; padding:8px 6px; color:#333; text-decoration:none; border-radius:6px; }
-    .sidebar a.active { background:#0d6efd; color:#fff; }
+    body { min-height:100vh; display:flex; flex-direction:column; background-color: #f8f9fa; }
+    .app-shell { display:flex; flex:1; overflow: hidden; }
+    
+    /* Sidebar Profesional */
+    .sidebar { 
+        width:240px; 
+        background: #ffffff; 
+        border-right:1px solid #dee2e6; 
+        display: flex; 
+        flex-direction: column;
+        padding: 15px;
+        transition: all 0.3s;
+    }
+    .sidebar a { 
+        display:block; 
+        padding:10px 12px; 
+        color:#495057; 
+        text-decoration:none; 
+        border-radius:8px; 
+        margin-bottom: 4px; 
+        font-weight: 500;
+        transition: background 0.2s;
+    }
+    .sidebar a:hover { background: #e9ecef; color: #000; }
+    .sidebar a.active { background:#0d6efd; color:#fff; box-shadow: 0 4px 6px rgba(13,110,253,0.2); }
+    
+    .content-area { flex:1; padding:24px; overflow-y: auto; }
+
+    /* Responsif untuk Mobile */
+    @media (max-width: 768px) {
+        .sidebar { 
+            position: fixed; 
+            z-index: 1040; 
+            height: 100%; 
+            left: -240px; 
+            background: #fff;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar.show { left: 0; }
+        .content-area { padding: 16px; }
+    }
   </style>
 </head>
 
 <body>
-  <header class="d-flex align-items-center p-2 bg-light">
-    <div class="container-fluid d-flex justify-content-between align-items-center">
-      <div class="d-flex align-items-center">
-        <button class="btn btn-sm btn-outline-secondary me-2" id="btnSync"><i class="bi bi-arrow-down-up me-1"></i> Sync Now</button>
-        <button class="btn btn-sm btn-outline-secondary" id="btnManualPull"><i class="bi bi-cloud-download me-1"></i> Pull</button>
-      </div>
-      <div><strong>Inspeksi K3</strong></div>
-      <div class="text-end small"><span id="lastSync">-</span></div>
+  <header class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top px-3 shadow-sm">
+    <button class="btn btn-outline-light me-2 d-md-none" id="toggleSidebar"><i class="bi bi-list"></i></button>
+    <a class="navbar-brand fw-bold" href="#">
+        <i class="bi bi-shield-check me-2"></i>K3 Minerba
+    </a>
+    
+    <div class="ms-auto d-flex align-items-center gap-2">
+        <span class="text-white small d-none d-sm-block" id="lastSyncDisplay">Sync: -</span>
+        <button class="btn btn-sm btn-primary" id="btnSync">
+            <i class="bi bi-cloud-arrow-up"></i> <span class="d-none d-sm-inline">Sync</span>
+        </button>
     </div>
   </header>
 
   <div class="app-shell">
-    <nav class="sidebar">
-      <h6 class="small text-muted">Menu</h6>
-      <a href="#dashboard" data-page="dashboard" class="active"><i class="bi bi-speedometer2 me-1"></i> Dashboard</a>
-      <a href="#input" data-page="input"><i class="bi bi-pencil-square me-1"></i> Input</a>
-      <a href="#rekap" data-page="rekap"><i class="bi bi-list-ul me-1"></i> Rekap</a>
-      <a href="#grafik" data-page="grafik"><i class="bi bi-bar-chart me-1"></i> Grafik</a>
-      <a href="#users" data-page="users"><i class="bi bi-people me-1"></i> Users</a>
-      <a href="#settings" data-page="settings"><i class="bi bi-gear me-1"></i> Settings</a>
+    <nav class="sidebar" id="mainSidebar">
+      <div class="text-muted small fw-bold text-uppercase mb-2">Menu Utama</div>
+      <a href="#dashboard" data-page="dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+      <a href="#input" data-page="input"><i class="bi bi-plus-circle me-2"></i>Input Inspeksi</a>
+      <a href="#rekap" data-page="rekap"><i class="bi bi-table me-2"></i>Data Temuan</a>
+      <a href="#grafik" data-page="grafik"><i class="bi bi-pie-chart me-2"></i>Analisa Grafik</a>
+      
+      <div class="text-muted small fw-bold text-uppercase mb-2 mt-4">Admin</div>
+      <a href="#users" data-page="users"><i class="bi bi-people me-2"></i>Pengguna</a>
+      <a href="#settings" data-page="settings"><i class="bi bi-gear me-2"></i>Pengaturan</a>
     </nav>
 
     <main class="content-area">
-      <h3 id="pageTitle">Dashboard</h3>
-      <div id="pageSubtitle" class="small text-muted">Ringkasan Statistik Inspeksi</div>
-      <div id="content">
-        <div class="alert alert-info">Memuat aplikasi...</div>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 id="pageTitle" class="mb-0 fw-bold text-dark">Dashboard</h4>
+            <div id="pageSubtitle" class="text-muted small">Overview Sistem</div>
+        </div>
+      </div>
+
+      <div id="content" class="fade-in">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Memuat aplikasi...</p>
+        </div>
       </div>
     </main>
   </div>
 
-  <footer class="text-center small p-2 bg-light">© Sistem Inspeksi K3</footer>
-
-  <!-- Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pouchdb@7.3.0/dist/pouchdb.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pouchdb-find@7.3.0/dist/pouchdb.find.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-  <!-- Correct Script Order -->
   <script src="/db.js"></script>
   <script src="/router.js"></script>
   <script src="/main.js"></script>
 
-  <!-- SW -->
   <script>
-  if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
-  }
-  </script>
+    // Toggle Sidebar Mobile
+    document.getElementById('toggleSidebar')?.addEventListener('click', () => {
+        document.getElementById('mainSidebar').classList.toggle('show');
+    });
 
-  <!-- Route after DOM ready -->
-  <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const page = window.location.hash.replace('#','') || 'dashboard';
-    router.navigateTo(page);
-  });
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(() => console.log('SW Registered'))
+            .catch(err => console.error('SW Fail', err));
+    }
   </script>
-
 </body>
 </html>
