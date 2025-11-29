@@ -1,125 +1,60 @@
-// ============================
-//  SERVICE WORKER - FINAL SAFE VERSION
-// ============================
-const CACHE_VERSION = 'k3-v7'; 
-const CACHE_NAME = `k3-cache-${CACHE_VERSION}`;
+// public/sw.js — FORCE UPDATE VERSION
 
-// Semua asset static yang ingin dicache
+const CACHE_NAME = 'minerba-k3-v10-force'; // Versi dinaikkan
 const ASSETS = [
   '/',
   '/index.html',
-  '/main.js',
-  '/router.js',
-  '/db.js',
   '/manifest.json',
-
-  // pages
-  '/pages/dashboard.html',
-  '/pages/input.html',
-  '/pages/rekap.html',
-  '/pages/detail.html',
-  '/pages/grafik.html',
-  '/pages/users.html',
-  '/pages/settings.html',
-
-  // icons (hanya jika memang ada)
   '/icon.svg',
+  '/db.js',
+  '/router.js',
+  '/main.js',
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
+  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css',
+  'https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js',
+  'https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.find.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js',
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
 ];
 
-
-// ============================
-//  INSTALL - SAFE CACHING
-// ============================
+// Install & Paksa Update
 self.addEventListener('install', event => {
-  console.log('[SW] Installing…');
-
+  self.skipWaiting(); // PENTING: Paksa SW baru aktif segera
   event.waitUntil(
-    (async () => {
-      const cache = await caches.open(CACHE_NAME);
-
-      for (const asset of ASSETS) {
-        try {
-          const res = await fetch(asset, { cache: "no-cache" });
-
-          if (res.ok) {
-            await cache.put(asset, res.clone());
-            console.log('[SW] Cached:', asset);
-          } else {
-            console.warn('[SW] Skip (not found):', asset);
-          }
-
-        } catch (err) {
-          console.warn('[SW] Skip (fetch error):', asset, err);
-        }
-      }
-
-      console.log('[SW] Install complete.');
-      self.skipWaiting();
-    })()
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
 });
 
-
-// ============================
-//  ACTIVATE - DELETE OLD CACHES
-// ============================
+// Activate & Hapus Cache Lama
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating…');
-
   event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-
-      for (const key of keys) {
-        if (key !== CACHE_NAME) {
-          console.log('[SW] Deleting old cache:', key);
-          await caches.delete(key);
-        }
-      }
-
-      console.log('[SW] Ready.');
-      self.clients.claim();
-    })()
+    caches.keys().then(keys => Promise.all(
+      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+    )).then(() => self.clients.claim()) // PENTING: Ambil alih kontrol halaman segera
   );
 });
 
-
-// ============================
-//  FETCH - CACHE FIRST + NETWORK FALLBACK
-// ============================
+// Fetch Strategy: Network First (Agar data selalu update), Fallback Cache
 self.addEventListener('fetch', event => {
-
-  // Jangan intercept request non-HTTP
-  if (!event.request.url.startsWith('http')) return;
-
+  if (event.request.method !== 'GET') return;
+  
   event.respondWith(
-    (async () => {
-      const cacheMatch = await caches.match(event.request);
-      if (cacheMatch) {
-        return cacheMatch; // Cache first
-      }
-
-      try {
-        const fetchResponse = await fetch(event.request);
-        return fetchResponse;
-      } catch (err) {
-        console.warn('[SW] Network fail:', event.request.url);
-        
-        // fallback: tampilkan offline page (?) jika mau
-        return new Response('<h3>Offline</h3>', {
-          headers: { 'Content-Type': 'text/html' }
+    fetch(event.request)
+      .then(res => {
+        // Jika online, simpan versi terbaru ke cache
+        const resClone = res.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, resClone));
+        return res;
+      })
+      .catch(() => {
+        // Jika offline, ambil dari cache
+        return caches.match(event.request).then(cached => {
+            if (cached) return cached;
+            if (event.request.headers.get('accept').includes('text/html')) {
+                return caches.match('/index.html');
+            }
         });
-      }
-    })()
+      })
   );
-});
-
-
-// ============================
-//  MESSAGE HANDLER (optional for future sync)
-// ============================
-self.addEventListener('message', (event) => {
-  if (event.data === 'skipWaiting') {
-    self.skipWaiting();
-  }
 });

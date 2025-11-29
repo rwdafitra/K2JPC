@@ -1,4 +1,4 @@
-// public/main.js — FINAL COMPLETE VERSION
+// public/main.js — FINAL COMPLETE VERSION (NO PLACEHOLDERS)
 
 /* =========================================
    MINERBASAFE MAIN CONTROLLER
@@ -26,21 +26,19 @@ function initNavigation() {
     const btnClose = qs('#btnCloseSidebar');
 
     function openMenu() {
-        sidebar?.classList.add('show');
-        overlay?.classList.add('show');
+        if(sidebar) sidebar.classList.add('show');
+        if(overlay) overlay.classList.add('show');
     }
 
     function closeMenu() {
-        sidebar?.classList.remove('show');
-        overlay?.classList.remove('show');
+        if(sidebar) sidebar.classList.remove('show');
+        if(overlay) overlay.classList.remove('show');
     }
 
-    // Event Listeners
-    btnToggle?.addEventListener('click', openMenu);
-    btnClose?.addEventListener('click', closeMenu);
-    overlay?.addEventListener('click', closeMenu);
+    if(btnToggle) btnToggle.addEventListener('click', openMenu);
+    if(btnClose) btnClose.addEventListener('click', closeMenu);
+    if(overlay) overlay.addEventListener('click', closeMenu);
 
-    // Auto-close saat link diklik (Mobile Only)
     qsa('.nav-link').forEach(link => {
         link.addEventListener('click', () => {
             if (window.innerWidth < 992) closeMenu();
@@ -64,30 +62,31 @@ function initNavigation() {
     updateOnlineStatus();
 }
 
-// Init Nav segera
+// Init Nav segera saat DOM siap
 document.addEventListener('DOMContentLoaded', initNavigation);
 
 // --- ROUTER HOOK ---
 window.onPageLoaded = function(page) {
     let user = getUser();
     
-    // LOGIKA LOGIN SEDERHANA
+    // Auto-Login Guest jika belum ada user
     if (!user) {
         user = { username: 'guest', role: 'Inspector', name: 'Tamu (Guest)' };
         localStorage.setItem('currentUser', JSON.stringify(user));
-        if(page === 'dashboard') alert("Selamat Datang! Anda masuk sebagai Tamu.");
+        // Jika di dashboard, beri sapaan (opsional)
+        // if(page === 'dashboard') alert("Selamat Datang! Anda masuk sebagai Tamu.");
     }
 
-    // Update Active Link
+    // Update UI Sidebar
     qsa('.nav-link').forEach(l => l.classList.remove('active'));
-    qs(`.nav-link[data-page="${page}"]`)?.classList.add('active');
+    const activeLink = qs(`.nav-link[data-page="${page}"]`);
+    if(activeLink) activeLink.classList.add('active');
     
-    // Update User Info
     if(qs('#userNameDisplay')) qs('#userNameDisplay').textContent = user.name;
     if(qs('#userRoleDisplay')) qs('#userRoleDisplay').textContent = user.role;
     if(qs('#userInitials')) qs('#userInitials').textContent = user.name.charAt(0).toUpperCase();
 
-    // Set Page Title
+    // Set Judul Halaman
     const titles = {
         'dashboard': ['Dashboard Eksekutif', 'Pantauan Real-time K3'],
         'input': ['Input Inspeksi', 'Formulir Standar Minerba'],
@@ -102,32 +101,34 @@ window.onPageLoaded = function(page) {
         if(qs('#pageSubtitle')) qs('#pageSubtitle').textContent = titles[page][1];
     }
 
-    // Init Page Logic
-    if (page === 'dashboard') initDashboard();
-    if (page === 'input') initInput(user);
-    if (page === 'rekap') initRekap(user);
-    if (page === 'detail') initDetail(user);
-    if (page === 'users') initUsers(user);
-    if (page === 'grafik') initGrafik();
-    if (page === 'settings') initSettings();
+    // Panggil Fungsi Inisialisasi Halaman
+    try {
+        if (page === 'dashboard') initDashboard();
+        if (page === 'input') initInput(user);
+        if (page === 'rekap') initRekap(user);
+        if (page === 'detail') initDetail(user);
+        if (page === 'users') initUsers(user);
+        if (page === 'grafik') initGrafik();
+        if (page === 'settings') initSettings();
+    } catch (e) {
+        console.error("Error init page:", e);
+    }
 };
 
 /* ===========================
-   PAGE FUNCTIONS
+   PAGE: DASHBOARD
    =========================== */
-
 async function initDashboard() {
     if(!window._k3db) return;
     try {
-        const docs = await window._k3db.listInspections(20);
+        // Ambil data (limit 50 biar cepat load dashboard)
+        const docs = await window._k3db.listInspections(50);
         
-        // Safe check elements
         if(qs('#statTotal')) qs('#statTotal').textContent = docs.length;
         if(qs('#statOpen')) qs('#statOpen').textContent = docs.filter(d => d.status === 'Open').length;
         if(qs('#statClosed')) qs('#statClosed').textContent = docs.filter(d => d.status === 'Closed').length;
         if(qs('#statCritical')) qs('#statCritical').textContent = docs.filter(d => (d.kode_bahaya === 'AA' || d.risk_score >= 15) && d.status === 'Open').length;
 
-        // Recent Table
         const tbody = qs('#dashboardRecent');
         if(tbody) {
             const recents = docs.slice(0, 5);
@@ -148,23 +149,31 @@ async function initDashboard() {
     } catch(e) { console.error("Dashboard error", e); }
 }
 
+/* ===========================
+   PAGE: INPUT
+   =========================== */
 function initInput(user) {
     const form = qs('#formMinerba');
     if(!form) return;
 
-    qs('#f_inspector').value = user.name;
-    qs('#f_inspectorId').value = user.username;
+    if(qs('#f_inspector')) qs('#f_inspector').value = user.name;
+    if(qs('#f_inspectorId')) qs('#f_inspectorId').value = user.username;
     
-    // Set current datetime local compatible
+    // Set tanggal saat ini
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    qs('#f_tanggal').value = now.toISOString().slice(0,16);
+    if(qs('#f_tanggal')) qs('#f_tanggal').value = now.toISOString().slice(0,16);
 
     // Risk Calculator
     function calcRisk() {
-        const s = parseInt(qs('#f_sev').value) || 1;
-        const p = parseInt(qs('#f_prob').value) || 1;
+        const sevEl = qs('#f_sev');
+        const probEl = qs('#f_prob');
+        if(!sevEl || !probEl) return;
+
+        const s = parseInt(sevEl.value) || 1;
+        const p = parseInt(probEl.value) || 1;
         const score = s * p;
+        
         if(qs('#f_risk_score')) qs('#f_risk_score').value = score;
         const label = qs('#f_risk_level');
         
@@ -175,8 +184,8 @@ function initInput(user) {
             else { label.value = 'LOW'; label.style.background='#198754'; label.style.color='#fff'; }
         }
     }
-    qs('#f_sev')?.addEventListener('change', calcRisk);
-    qs('#f_prob')?.addEventListener('change', calcRisk);
+    if(qs('#f_sev')) qs('#f_sev').addEventListener('change', calcRisk);
+    if(qs('#f_prob')) qs('#f_prob').addEventListener('change', calcRisk);
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -232,6 +241,9 @@ function initInput(user) {
     });
 }
 
+/* ===========================
+   PAGE: REKAP
+   =========================== */
 async function initRekap(user) {
     const body = qs('#rekapTableBody');
     if(!body) return;
@@ -256,6 +268,9 @@ async function initRekap(user) {
     } catch(e) { console.error(e); }
 }
 
+/* ===========================
+   PAGE: DETAIL
+   =========================== */
 async function initDetail(user) {
     const params = new URLSearchParams(window.location.hash.split('?')[1]);
     const id = params.get('id');
@@ -319,7 +334,6 @@ async function initDetail(user) {
             </div>
         `;
 
-        // Render Photos
         const photoCont = qs('#detailPhotos');
         if(doc._attachments) {
             for(const k in doc._attachments) {
@@ -345,24 +359,18 @@ async function initDetail(user) {
             initDetail(user);
         };
     } catch(e) {
-        qs('#detailContent').innerHTML = `<div class="alert alert-danger">Gagal memuat: ${e.message}</div>`;
+        if(qs('#detailContent')) qs('#detailContent').innerHTML = `<div class="alert alert-danger">Gagal memuat: ${e.message}</div>`;
     }
 }
 
 /* ===========================
-   USERS LOGIC
+   PAGE: USERS (SUDAH IMPLEMENTED)
    =========================== */
 async function initUsers(user) {
     if (!window._k3db?.listUsers) return;
     const body = qs('#userTableBody');
     const form = qs('#userForm');
     if (!body || !form) return;
-
-    // Hanya render jika Manager/Admin
-    // if (user.role !== 'Manager' && user.role !== 'Admin') {
-    //     body.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Akses Ditolak.</td></tr>';
-    //     return;
-    // }
 
     async function render() {
         const users = await window._k3db.listUsers();
@@ -390,16 +398,20 @@ async function initUsers(user) {
         } catch(e) { alert("Gagal hapus: " + e.message); }
     };
 
-    // Tambah listener dengan proteksi duplikasi (replace node)
+    // Replace form node to remove old listeners
     const newForm = form.cloneNode(true);
     form.parentNode.replaceChild(newForm, form);
     
     newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const unameInput = newForm.querySelector('#f_uname');
+        const nameInput = newForm.querySelector('#f_name');
+        const roleInput = newForm.querySelector('#f_role');
+
         const doc = {
-            username: qs('#f_uname').value,
-            name: qs('#f_name').value,
-            role: qs('#f_role').value
+            username: unameInput.value,
+            name: nameInput.value,
+            role: roleInput.value
         };
         try {
             await window._k3db.saveUser(doc);
@@ -413,10 +425,9 @@ async function initUsers(user) {
 }
 
 /* ===========================
-   GRAFIK LOGIC
+   PAGE: GRAFIK (SUDAH IMPLEMENTED)
    =========================== */
 async function initGrafik() {
-    // Pastikan elemen canvas sudah ada (dari grafik.html)
     const ctxRisk = qs('#chartRisk');
     const ctxStatus = qs('#chartStatus');
   
@@ -424,26 +435,24 @@ async function initGrafik() {
     if (!window._k3db) return;
   
     try {
-      const docs = await window._k3db.listInspections(500); // Limit sample data
+      const docs = await window._k3db.listInspections(500); 
       
-      // Hapus loading message jika ada
-      qs('#chartLoading')?.remove();
+      const loader = qs('#chartLoading');
+      if(loader) loader.remove();
   
-      // Data Processing
       const riskCounts = { HIGH:0, MEDIUM:0, LOW:0, EXTREME:0 };
       const statusCounts = { Open:0, Closed:0 };
   
       docs.forEach(d => {
           let r = d.risk_level || 'LOW';
           if (riskCounts[r] !== undefined) riskCounts[r]++;
-          else riskCounts['LOW']++; // fallback
+          else riskCounts['LOW']++; 
           
           const s = d.status || 'Open';
           if (statusCounts[s] !== undefined) statusCounts[s]++;
           else statusCounts['Open']++;
       });
   
-      // Render Chart Risk (Bar)
       if (window.chartInstanceRisk) window.chartInstanceRisk.destroy(); 
       window.chartInstanceRisk = new Chart(ctxRisk, {
           type: 'bar',
@@ -459,7 +468,6 @@ async function initGrafik() {
           options: { responsive: true, plugins: { legend: {display:false} } }
       });
   
-      // Render Chart Status (Doughnut)
       if (window.chartInstanceStatus) window.chartInstanceStatus.destroy();
       window.chartInstanceStatus = new Chart(ctxStatus, {
           type: 'doughnut',
@@ -481,47 +489,49 @@ async function initGrafik() {
 }
 
 /* ===========================
-   SETTINGS LOGIC
+   PAGE: SETTINGS (SUDAH IMPLEMENTED)
    =========================== */
 function initSettings() {
-    // Tombol Sync Normal
-    qs('#btnSyncNowSettings')?.addEventListener('click', () => {
-        qs('#btnSync').click(); // Trigger tombol sync di header
-    });
+    const btnSyncSet = qs('#btnSyncNowSettings');
+    if(btnSyncSet) {
+        btnSyncSet.addEventListener('click', () => {
+            qs('#btnSync').click(); 
+        });
+    }
 
-    // TOMBOL: Force Push
-    qs('#btnForcePush')?.addEventListener('click', async () => {
-        if(!confirm("Kirim ulang SEMUA data lokal ke server? Gunakan ini jika data server kosong.")) return;
-        
-        const btn = qs('#btnForcePush');
-        const orig = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Resetting...';
-        
-        try {
-            // 1. Reset status synced jadi false semua
-            const count = await window._k3db.resetSyncStatus();
+    const btnForce = qs('#btnForcePush');
+    if(btnForce) {
+        btnForce.addEventListener('click', async () => {
+            if(!confirm("Kirim ulang SEMUA data lokal ke server? Gunakan ini jika data server kosong.")) return;
             
-            // 2. Lakukan Sync
-            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Uploading ${count} items...`;
-            const stats = await window._k3db.sync();
+            const orig = btnForce.innerHTML;
+            btnForce.disabled = true;
+            btnForce.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Resetting...';
             
-            alert(`Sukses! ${stats.pushed} data berhasil dikirim ulang ke server.`);
-        } catch(e) {
-            alert("Gagal: " + e.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = orig;
-        }
-    });
+            try {
+                const count = await window._k3db.resetSyncStatus();
+                btnForce.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Uploading ${count} items...`;
+                const stats = await window._k3db.sync();
+                
+                alert(`Sukses! ${stats.pushed} data berhasil dikirim ulang ke server.`);
+            } catch(e) {
+                alert("Gagal: " + e.message);
+            } finally {
+                btnForce.disabled = false;
+                btnForce.innerHTML = orig;
+            }
+        });
+    }
     
-    // Hapus Data
-    qs('#btnClearAll')?.addEventListener('click', async () => {
-        if(!confirm("PERINGATAN: Hapus semua data di HP ini? Data yang belum sync akan HILANG PERMANEN.")) return;
-        await window._k3db.db.destroy();
-        alert("Database lokal dihapus. Halaman akan dimuat ulang.");
-        location.reload();
-    });
+    const btnClear = qs('#btnClearAll');
+    if(btnClear) {
+        btnClear.addEventListener('click', async () => {
+            if(!confirm("PERINGATAN: Hapus semua data di HP ini? Data yang belum sync akan HILANG PERMANEN.")) return;
+            await window._k3db.db.destroy();
+            alert("Database lokal dihapus. Halaman akan dimuat ulang.");
+            location.reload();
+        });
+    }
 }
 
 // Global Export PDF
@@ -559,7 +569,6 @@ window.exportPDF = async (id) => {
         const reko = pdf.splitTextToSize(doc.rekomendasi, 180);
         pdf.text(reko, 14, y + 16);
         
-        // Tanda Tangan
         y += 40 + (reko.length * 6);
         pdf.setLineWidth(0.1);
         pdf.rect(20, y, 60, 25);
@@ -575,19 +584,26 @@ window.exportPDF = async (id) => {
 };
 
 // Sync Handler Header
-qs('#btnSync')?.addEventListener('click', async () => {
-    const btn = qs('#btnSync');
-    btn.disabled = true;
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing...';
-    try {
-        const stats = await window._k3db.sync();
-        alert(`Sinkronisasi Selesai.\nUpload: ${stats.pushed}\nDownload: ${stats.pulled}`);
-        location.reload();
-    } catch(e) {
-        alert("Sync Gagal: " + e.message);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = orig;
-    }
-});
+const syncBtn = qs('#btnSync');
+if(syncBtn) {
+    syncBtn.addEventListener('click', async () => {
+        syncBtn.disabled = true;
+        const orig = syncBtn.innerHTML;
+        syncBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing...';
+        try {
+            const stats = await window._k3db.sync();
+            if (stats.pulled === 0 && stats.pushed === 0) {
+                console.log("Sync Check: Tidak ada data baru.");
+            }
+            alert(`Sinkronisasi Selesai.\nUpload: ${stats.pushed}\nDownload: ${stats.pulled}`);
+            // Reload halaman agar data yang ditarik muncul
+            const currentPage = document.querySelector('.nav-link.active')?.getAttribute('data-page') || 'dashboard';
+            window.onPageLoaded(currentPage); 
+        } catch(e) {
+            alert("Sync Gagal: " + e.message);
+        } finally {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = orig;
+        }
+    });
+}
