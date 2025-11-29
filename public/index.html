@@ -17,80 +17,36 @@
       --primary-color: #0F2C59; 
       --secondary-color: #F8F9FA;
       --accent-color: #DAC0A3;
-      --success-color: #198754;
       --sidebar-width: 280px;
     }
+    body { font-family: 'Inter', sans-serif; background-color: #f4f6f8; overflow-x: hidden; }
 
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #f4f6f8;
-      overflow-x: hidden;
-    }
-
-    /* Professional Sidebar */
+    /* Sidebar Styles */
     .sidebar {
-      position: fixed;
-      top: 0; left: 0; height: 100vh;
-      width: var(--sidebar-width);
-      background: var(--primary-color);
-      color: #fff;
-      transition: transform 0.3s ease-in-out;
-      z-index: 1050;
-      display: flex; flex-direction: column;
-      box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+      position: fixed; top: 0; left: 0; height: 100vh; width: var(--sidebar-width);
+      background: var(--primary-color); color: #fff; transition: transform 0.3s ease-in-out;
+      z-index: 1050; display: flex; flex-direction: column; box-shadow: 4px 0 15px rgba(0,0,0,0.1);
     }
-    
-    .sidebar-brand {
-      padding: 20px 24px;
-      font-size: 1.25rem;
-      font-weight: 700;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      letter-spacing: 0.5px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-
-    .nav-link {
-      color: rgba(255,255,255,0.75);
-      padding: 14px 24px;
-      display: flex; align-items: center;
-      transition: 0.2s;
-      font-weight: 500;
-      text-decoration: none;
-    }
+    .sidebar-brand { padding: 20px 24px; font-weight: 700; font-size: 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
+    .nav-link { color: rgba(255,255,255,0.75); padding: 14px 24px; display: flex; align-items: center; text-decoration: none; transition: 0.2s; font-weight: 500; }
     .nav-link:hover { color: #fff; background: rgba(255,255,255,0.1); padding-left: 28px; }
     .nav-link.active { color: #fff; background: rgba(255,255,255,0.15); border-left: 4px solid var(--accent-color); }
     .nav-link i { margin-right: 12px; font-size: 1.1rem; }
-
-    /* Content Area */
-    .main-content {
-      margin-left: var(--sidebar-width);
-      padding: 24px;
-      transition: margin-left 0.3s;
-      min-height: 100vh;
-    }
-
-    /* Mobile Overlay */
-    .sidebar-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5); z-index: 1045;
-      display: none; opacity: 0; transition: opacity 0.3s;
-    }
+    
+    /* Overlay & Main Content */
+    .main-content { margin-left: var(--sidebar-width); padding: 24px; transition: margin-left 0.3s; min-height: 100vh; }
+    .sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1045; display: none; opacity: 0; transition: opacity 0.3s; }
     .sidebar-overlay.show { display: block; opacity: 1; }
-
+    
     /* Mobile Responsive */
     @media (max-width: 991.98px) {
       .sidebar { transform: translateX(-100%); }
       .sidebar.show { transform: translateX(0); }
       .main-content { margin-left: 0; }
     }
-
-    /* Close Button Mobile */
-    .btn-close-sidebar {
-      background: none; border: none; color: rgba(255,255,255,0.6);
-      font-size: 1.5rem; line-height: 1;
-    }
-
-    /* Status & Cards */
+    .btn-close-sidebar { background: none; border: none; color: rgba(255,255,255,0.6); font-size: 1.5rem; line-height: 1; }
+    
+    /* Utility */
     .card-pro { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); background: #fff; }
     .status-pill { font-size: 0.75rem; padding: 4px 12px; border-radius: 50px; background: #fff; color: var(--primary-color); display: inline-flex; align-items: center; gap: 6px; }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
@@ -103,9 +59,7 @@
 
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <div class="d-flex align-items-center">
-        <i class="bi bi-shield-check me-2"></i> MINERBA<span style="color:var(--accent-color)">SAFE</span>
-      </div>
+      <div class="d-flex align-items-center"><i class="bi bi-shield-check me-2"></i> MINERBA<span style="color:var(--accent-color)">SAFE</span></div>
       <button class="btn-close-sidebar d-lg-none" id="btnCloseSidebar"><i class="bi bi-x"></i></button>
     </div>
     
@@ -115,14 +69,13 @@
       <a href="#input" class="nav-link" data-page="input"><i class="bi bi-clipboard-plus"></i> Inspeksi Baru</a>
       <a href="#rekap" class="nav-link" data-page="rekap"><i class="bi bi-folder2-open"></i> Database Temuan</a>
       <a href="#grafik" class="nav-link" data-page="grafik"><i class="bi bi-bar-chart-line"></i> Analisa Grafik</a>
-      
       <div class="mt-4">
         <small class="text-uppercase text-white-50 px-4 mb-2 d-block fw-bold" style="font-size:0.7rem">Administrasi</small>
         <a href="#users" class="nav-link" data-page="users"><i class="bi bi-people"></i> Manajemen User</a>
         <a href="#settings" class="nav-link" data-page="settings"><i class="bi bi-sliders"></i> Pengaturan</a>
       </div>
     </div>
-
+    
     <div class="p-3 bg-black bg-opacity-25 border-top border-white border-opacity-10">
       <div class="d-flex align-items-center">
         <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold me-2" style="width:36px; height:36px;" id="userInitials">U</div>
@@ -143,7 +96,6 @@
           <span class="text-muted small" id="pageSubtitle">Overview</span>
         </div>
       </div>
-      
       <div class="d-flex gap-2 align-items-center">
         <div class="status-pill shadow-sm border">
           <div id="onlineIndicator" class="status-dot"></div>
@@ -154,17 +106,16 @@
         </button>
       </div>
     </header>
-
     <div id="content" class="fade-in position-relative">
-      <div class="text-center py-5">
-        <div class="spinner-border text-primary" role="status"></div>
-      </div>
+      <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pouchdb@7.3.0/dist/pouchdb.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pouchdb-find@7.3.0/dist/pouchdb.find.min.js"></script>
+  
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.find.min.js"></script>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -174,7 +125,6 @@
   <script src="/main.js"></script>
   
   <script>
-    // SW Register
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
   </script>
 </body>
