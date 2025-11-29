@@ -14,11 +14,11 @@
 
   <style>
     :root {
-      --primary-color: #0F2C59; /* Corporate Navy */
+      --primary-color: #0F2C59; 
       --secondary-color: #F8F9FA;
       --accent-color: #DAC0A3;
       --success-color: #198754;
-      --sidebar-width: 260px;
+      --sidebar-width: 280px;
     }
 
     body {
@@ -34,18 +34,19 @@
       width: var(--sidebar-width);
       background: var(--primary-color);
       color: #fff;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 1040;
+      transition: transform 0.3s ease-in-out;
+      z-index: 1050;
       display: flex; flex-direction: column;
       box-shadow: 4px 0 15px rgba(0,0,0,0.1);
     }
     
     .sidebar-brand {
-      padding: 24px;
+      padding: 20px 24px;
       font-size: 1.25rem;
       font-weight: 700;
       border-bottom: 1px solid rgba(255,255,255,0.1);
       letter-spacing: 0.5px;
+      display: flex; justify-content: space-between; align-items: center;
     }
 
     .nav-link {
@@ -54,6 +55,7 @@
       display: flex; align-items: center;
       transition: 0.2s;
       font-weight: 500;
+      text-decoration: none;
     }
     .nav-link:hover { color: #fff; background: rgba(255,255,255,0.1); padding-left: 28px; }
     .nav-link.active { color: #fff; background: rgba(255,255,255,0.15); border-left: 4px solid var(--accent-color); }
@@ -67,45 +69,47 @@
       min-height: 100vh;
     }
 
+    /* Mobile Overlay */
+    .sidebar-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); z-index: 1045;
+      display: none; opacity: 0; transition: opacity 0.3s;
+    }
+    .sidebar-overlay.show { display: block; opacity: 1; }
+
     /* Mobile Responsive */
     @media (max-width: 991.98px) {
-      .sidebar { left: calc(var(--sidebar-width) * -1); }
-      .sidebar.show { left: 0; }
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.show { transform: translateX(0); }
       .main-content { margin-left: 0; }
     }
 
-    /* Utility Cards */
-    .card-pro {
-      border: none;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-      background: #fff;
-      transition: transform 0.2s;
+    /* Close Button Mobile */
+    .btn-close-sidebar {
+      background: none; border: none; color: rgba(255,255,255,0.6);
+      font-size: 1.5rem; line-height: 1;
     }
-    .card-pro:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
 
-    /* Sync Indicator */
-    .status-pill {
-      font-size: 0.75rem;
-      padding: 4px 12px;
-      border-radius: 50px;
-      background: rgba(255,255,255,0.9);
-      color: var(--primary-color);
-      font-weight: 600;
-      display: inline-flex; align-items: center; gap: 6px;
-    }
+    /* Status & Cards */
+    .card-pro { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); background: #fff; }
+    .status-pill { font-size: 0.75rem; padding: 4px 12px; border-radius: 50px; background: #fff; color: var(--primary-color); display: inline-flex; align-items: center; gap: 6px; }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
     .status-dot.online { background: #198754; box-shadow: 0 0 5px #198754; }
   </style>
 </head>
 
 <body>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
   <nav class="sidebar" id="sidebar">
-    <div class="sidebar-brand d-flex align-items-center">
-      <i class="bi bi-shield-check me-2"></i> MINERBA<span style="color:var(--accent-color)">SAFE</span>
+    <div class="sidebar-brand">
+      <div class="d-flex align-items-center">
+        <i class="bi bi-shield-check me-2"></i> MINERBA<span style="color:var(--accent-color)">SAFE</span>
+      </div>
+      <button class="btn-close-sidebar d-lg-none" id="btnCloseSidebar"><i class="bi bi-x"></i></button>
     </div>
     
-    <div class="flex-grow-1 py-3">
+    <div class="flex-grow-1 py-3 overflow-auto">
       <small class="text-uppercase text-white-50 px-4 mb-2 d-block fw-bold" style="font-size:0.7rem">Operasional</small>
       <a href="#dashboard" class="nav-link" data-page="dashboard"><i class="bi bi-grid-1x2"></i> Dashboard</a>
       <a href="#input" class="nav-link" data-page="input"><i class="bi bi-clipboard-plus"></i> Inspeksi Baru</a>
@@ -119,11 +123,11 @@
       </div>
     </div>
 
-    <div class="p-3 bg-opacity-10 bg-black">
-      <div class="d-flex align-items-center mb-2">
-        <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold me-2" style="width:32px; height:32px;" id="userInitials">U</div>
-        <div class="text-white small lh-1">
-          <div class="fw-bold" id="userNameDisplay">User</div>
+    <div class="p-3 bg-black bg-opacity-25 border-top border-white border-opacity-10">
+      <div class="d-flex align-items-center">
+        <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold me-2" style="width:36px; height:36px;" id="userInitials">U</div>
+        <div class="text-white small lh-1 overflow-hidden">
+          <div class="fw-bold text-truncate" id="userNameDisplay">User</div>
           <small class="text-white-50" id="userRoleDisplay">Inspector</small>
         </div>
       </div>
@@ -131,22 +135,22 @@
   </nav>
 
   <div class="main-content">
-    <header class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+    <header class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom sticky-top bg-white pt-3 px-1" style="z-index:1000">
       <div class="d-flex align-items-center">
-        <button class="btn btn-light d-lg-none me-3 shadow-sm" id="toggleSidebar"><i class="bi bi-list fs-5"></i></button>
-        <div>
+        <button class="btn btn-light d-lg-none me-3 shadow-sm border" id="toggleSidebar"><i class="bi bi-list fs-5"></i></button>
+        <div class="lh-1">
           <h4 class="mb-0 fw-bold text-dark" id="pageTitle">Dashboard</h4>
-          <span class="text-muted small" id="pageSubtitle">Overview kinerja K3 pertambangan</span>
+          <span class="text-muted small" id="pageSubtitle">Overview</span>
         </div>
       </div>
       
       <div class="d-flex gap-2 align-items-center">
-        <div class="status-pill shadow-sm">
+        <div class="status-pill shadow-sm border">
           <div id="onlineIndicator" class="status-dot"></div>
-          <span id="syncStatusText" class="d-none d-md-inline">Offline</span>
+          <span id="syncStatusText" class="d-none d-md-inline fw-bold small">Offline</span>
         </div>
         <button class="btn btn-primary d-flex align-items-center gap-2 shadow-sm" id="btnSync">
-          <i class="bi bi-cloud-sync"></i> <span class="d-none d-md-inline">Sync Data</span>
+          <i class="bi bi-cloud-sync"></i> <span class="d-none d-md-inline">Sync</span>
         </button>
       </div>
     </header>
@@ -162,29 +166,14 @@
   <script src="https://cdn.jsdelivr.net/npm/pouchdb@7.3.0/dist/pouchdb.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pouchdb-find@7.3.0/dist/pouchdb.find.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <script src="/db.js"></script>
   <script src="/router.js"></script>
   <script src="/main.js"></script>
   
   <script>
-    // UX: Sidebar Toggle & Network Listener
-    document.getElementById('toggleSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('show'));
-    
-    function updateOnlineStatus() {
-      const dot = document.getElementById('onlineIndicator');
-      const text = document.getElementById('syncStatusText');
-      if(navigator.onLine) {
-        dot.classList.add('online'); text.textContent = "Online";
-      } else {
-        dot.classList.remove('online'); text.textContent = "Offline";
-      }
-    }
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-    updateOnlineStatus();
-
     // SW Register
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
   </script>
