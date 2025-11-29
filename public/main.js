@@ -1,4 +1,4 @@
-// public/main.js — FINAL COMPLETE VERSION (NO PLACEHOLDERS)
+// public/main.js — FINAL FIXED VERSION
 
 /* =========================================
    MINERBASAFE MAIN CONTROLLER
@@ -62,22 +62,17 @@ function initNavigation() {
     updateOnlineStatus();
 }
 
-// Init Nav segera saat DOM siap
 document.addEventListener('DOMContentLoaded', initNavigation);
 
 // --- ROUTER HOOK ---
 window.onPageLoaded = function(page) {
     let user = getUser();
     
-    // Auto-Login Guest jika belum ada user
     if (!user) {
         user = { username: 'guest', role: 'Inspector', name: 'Tamu (Guest)' };
         localStorage.setItem('currentUser', JSON.stringify(user));
-        // Jika di dashboard, beri sapaan (opsional)
-        // if(page === 'dashboard') alert("Selamat Datang! Anda masuk sebagai Tamu.");
     }
 
-    // Update UI Sidebar
     qsa('.nav-link').forEach(l => l.classList.remove('active'));
     const activeLink = qs(`.nav-link[data-page="${page}"]`);
     if(activeLink) activeLink.classList.add('active');
@@ -86,7 +81,6 @@ window.onPageLoaded = function(page) {
     if(qs('#userRoleDisplay')) qs('#userRoleDisplay').textContent = user.role;
     if(qs('#userInitials')) qs('#userInitials').textContent = user.name.charAt(0).toUpperCase();
 
-    // Set Judul Halaman
     const titles = {
         'dashboard': ['Dashboard Eksekutif', 'Pantauan Real-time K3'],
         'input': ['Input Inspeksi', 'Formulir Standar Minerba'],
@@ -101,7 +95,6 @@ window.onPageLoaded = function(page) {
         if(qs('#pageSubtitle')) qs('#pageSubtitle').textContent = titles[page][1];
     }
 
-    // Panggil Fungsi Inisialisasi Halaman
     try {
         if (page === 'dashboard') initDashboard();
         if (page === 'input') initInput(user);
@@ -116,9 +109,7 @@ window.onPageLoaded = function(page) {
 };
 
 /* ===========================
-   PAGE: DASHBOARD
-   =========================== */
-PAGE: DASHBOARD (Updated: Network First)
+   PAGE: DASHBOARD (Updated: Network First)
    =========================== */
 async function initDashboard() {
     if(!window._k3db) return;
@@ -131,20 +122,21 @@ async function initDashboard() {
         // STRATEGI: Cek Internet Dulu (Real-time)
         if (navigator.onLine) {
             try {
-                const res = await fetch('/api/inspeksi?limit=50'); // Ambil 50 data live
+                // Fetch data metadata only (ringan)
+                const res = await fetch('/api/inspeksi?limit=50'); 
                 if (res.ok) {
                     docs = await res.json();
-                    console.log("⚡ Dashboard: Mode ONLINE (Live Data)");
+                    console.log("Dashboard: Mode ONLINE (Live Data)");
                 } else { throw new Error("Server error"); }
             } catch(e) {
                 // Fallback ke Lokal jika fetch gagal
                 docs = await window._k3db.listInspections(50);
-                console.log("⚠️ Dashboard: Mode OFFLINE (Local Data)");
+                console.log("Dashboard: Mode OFFLINE (Local Data)");
             }
         } else {
             // Offline Mode
             docs = await window._k3db.listInspections(50);
-            console.log("📴 Dashboard: Mode OFFLINE");
+            console.log("Dashboard: Mode OFFLINE");
         }
         
         // Update Statistik
@@ -183,12 +175,10 @@ function initInput(user) {
     if(qs('#f_inspector')) qs('#f_inspector').value = user.name;
     if(qs('#f_inspectorId')) qs('#f_inspectorId').value = user.username;
     
-    // Set tanggal saat ini
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     if(qs('#f_tanggal')) qs('#f_tanggal').value = now.toISOString().slice(0,16);
 
-    // Risk Calculator
     function calcRisk() {
         const sevEl = qs('#f_sev');
         const probEl = qs('#f_prob');
@@ -292,8 +282,8 @@ async function initRekap(user) {
     } catch(e) { console.error(e); }
 }
 
-* ===========================
-   PAGE: DETAIL (Updated: Hybrid Image Loading)
+/* ===========================
+   PAGE: DETAIL (Updated: Hybrid Image Loading + Syntax Fix)
    =========================== */
 async function initDetail(user) {
     const params = new URLSearchParams(window.location.hash.split('?')[1]);
@@ -301,25 +291,18 @@ async function initDetail(user) {
     if(!id) return;
 
     try {
-        // Coba ambil dari lokal dulu
         let doc;
+        // 1. Coba ambil dari lokal
         try {
             doc = await window._k3db.getInspection(id);
         } catch(e) {
-            // Jika tidak ada di lokal (misal hasil search server), ambil fetch manual
-            // Note: Anda perlu membuat endpoint GET /api/inspeksi/:id di server jika mau detail full dari server
-            // Untuk sekarang kita asumsi data sync sudah masuk via Pull.
-            if(navigator.onLine) {
-                 // Fallback fetch single doc (opsional, jika Anda implement endpoint single doc)
-                 // const res = await fetch(`/api/inspeksi/${id}`); ...
-            }
-            throw new Error("Data sedang disinkronisasi atau tidak ditemukan.");
+            // 2. Jika tidak ada di lokal tapi ada internet, anggap ini data server
+            // Note: untuk app sederhana, kita harusnya sudah punya data minimal (metadata) dari dashboard/list
+            // Kalau benar-benar tidak ada di lokal, mungkin error atau data belum sync.
+            throw new Error("Data tidak ditemukan di lokal. Lakukan Sync terlebih dahulu.");
         }
 
         const content = qs('#detailContent');
-        // ... (Render HTML Metadata sama seperti sebelumnya) ...
-        // Copy bagian render HTML metadata dari kode lama Anda di sini
-        // Mulai dari `content.innerHTML = ...` sampai sebelum `const photoCont = ...`
         
         content.innerHTML = `
             <div class="card card-pro p-4 mb-4">
@@ -378,37 +361,37 @@ async function initDetail(user) {
         // --- LOGIC FOTO HYBRID ---
         const photoCont = qs('#detailPhotos');
         
-        // 1. Cek apakah ada attachment lokal (Blob)? (Biasanya hasil input sendiri)
+        function renderImg(src, isServer) {
+            const div = document.createElement('div');
+            div.className = 'col-6 col-md-3';
+            
+            // Fix: Gunakan escape string yang aman
+            const errAttr = isServer ? 'onerror="this.parentElement.style.display=\'none\'"' : '';
+            
+            div.innerHTML = `
+                <a href="${src}" target="_blank">
+                    <img src="${src}" ${errAttr} class="img-fluid rounded border shadow-sm" style="height:120px; width:100%; object-fit:cover; background:#eee;">
+                </a>`;
+            photoCont.appendChild(div);
+        }
+
+        // 1. Attachment Lokal
         if(doc._attachments && Object.keys(doc._attachments).length > 0) {
             for(const k in doc._attachments) {
                 const blob = await window._k3db.db.getAttachment(doc._id, k);
                 const url = URL.createObjectURL(blob);
-                renderImg(url);
+                renderImg(url, false);
             }
         } 
-        // 2. Jika tidak ada di lokal, coba load URL server (Untuk data hasil Pull)
+        // 2. Attachment Server (Fallback)
         else {
-            // Kita coba load 3 kemungkinan nama file (foto_1 s/d foto_3)
-            // Browser akan otomatis hide jika error (onerror)
             [1, 2, 3].forEach(num => {
                 const url = `/api/inspeksi/${doc._id}/foto_${num}.jpg`;
                 renderImg(url, true);
             });
         }
 
-        function renderImg(src, isServer = false) {
-            const div = document.createElement('div');
-            div.className = 'col-6 col-md-3';
-            // Jika server, tambah handler onerror untuk sembunyikan gambar rusak/tidak ada
-            const errHandler = isServer ? `onerror="this.parentElement.style.display='none'"` : '';
-            
-            div.innerHTML = `
-                <a href="${src}" target="_blank">
-                    <img src="${src}" ${errHandler} class="img-fluid rounded border shadow-sm" style="height:120px; width:100%; object-fit:cover; background:#eee;">
-                </a>`;
-            photoCont.appendChild(div);
-        }
-
+        // Global function for onclick
         window.closeInsp = async (id) => {
             if(!confirm("Tandai temuan ini sebagai selesai (Closed)?")) return;
             doc.status = 'Closed';
@@ -422,7 +405,7 @@ async function initDetail(user) {
 }
 
 /* ===========================
-   PAGE: USERS (SUDAH IMPLEMENTED)
+   PAGE: USERS
    =========================== */
 async function initUsers(user) {
     if (!window._k3db?.listUsers) return;
@@ -456,7 +439,6 @@ async function initUsers(user) {
         } catch(e) { alert("Gagal hapus: " + e.message); }
     };
 
-    // Replace form node to remove old listeners
     const newForm = form.cloneNode(true);
     form.parentNode.replaceChild(newForm, form);
     
@@ -483,7 +465,7 @@ async function initUsers(user) {
 }
 
 /* ===========================
-   PAGE: GRAFIK (SUDAH IMPLEMENTED)
+   PAGE: GRAFIK
    =========================== */
 async function initGrafik() {
     const ctxRisk = qs('#chartRisk');
@@ -547,7 +529,7 @@ async function initGrafik() {
 }
 
 /* ===========================
-   PAGE: SETTINGS (SUDAH IMPLEMENTED)
+   PAGE: SETTINGS
    =========================== */
 function initSettings() {
     const btnSyncSet = qs('#btnSyncNowSettings');
@@ -592,7 +574,9 @@ function initSettings() {
     }
 }
 
-// Global Export PDF
+/* ===========================
+   GLOBAL EXPORT & SYNC
+   =========================== */
 window.exportPDF = async (id) => {
     try {
         const doc = await window._k3db.getInspection(id);
@@ -641,7 +625,6 @@ window.exportPDF = async (id) => {
     } catch(e) { alert("PDF Error: "+e.message); }
 };
 
-// Sync Handler Header
 const syncBtn = qs('#btnSync');
 if(syncBtn) {
     syncBtn.addEventListener('click', async () => {
@@ -650,11 +633,7 @@ if(syncBtn) {
         syncBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing...';
         try {
             const stats = await window._k3db.sync();
-            if (stats.pulled === 0 && stats.pushed === 0) {
-                console.log("Sync Check: Tidak ada data baru.");
-            }
             alert(`Sinkronisasi Selesai.\nUpload: ${stats.pushed}\nDownload: ${stats.pulled}`);
-            // Reload halaman agar data yang ditarik muncul
             const currentPage = document.querySelector('.nav-link.active')?.getAttribute('data-page') || 'dashboard';
             window.onPageLoaded(currentPage); 
         } catch(e) {
