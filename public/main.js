@@ -118,18 +118,42 @@ window.onPageLoaded = function(page) {
 /* ===========================
    PAGE: DASHBOARD
    =========================== */
+PAGE: DASHBOARD (Updated: Network First)
+   =========================== */
 async function initDashboard() {
     if(!window._k3db) return;
+    
+    let docs = [];
+    const tbody = qs('#dashboardRecent');
+    if(tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Memuat data...</td></tr>';
+
     try {
-        // Ambil data (limit 50 biar cepat load dashboard)
-        const docs = await window._k3db.listInspections(50);
+        // STRATEGI: Cek Internet Dulu (Real-time)
+        if (navigator.onLine) {
+            try {
+                const res = await fetch('/api/inspeksi?limit=50'); // Ambil 50 data live
+                if (res.ok) {
+                    docs = await res.json();
+                    console.log("⚡ Dashboard: Mode ONLINE (Live Data)");
+                } else { throw new Error("Server error"); }
+            } catch(e) {
+                // Fallback ke Lokal jika fetch gagal
+                docs = await window._k3db.listInspections(50);
+                console.log("⚠️ Dashboard: Mode OFFLINE (Local Data)");
+            }
+        } else {
+            // Offline Mode
+            docs = await window._k3db.listInspections(50);
+            console.log("📴 Dashboard: Mode OFFLINE");
+        }
         
+        // Update Statistik
         if(qs('#statTotal')) qs('#statTotal').textContent = docs.length;
         if(qs('#statOpen')) qs('#statOpen').textContent = docs.filter(d => d.status === 'Open').length;
         if(qs('#statClosed')) qs('#statClosed').textContent = docs.filter(d => d.status === 'Closed').length;
         if(qs('#statCritical')) qs('#statCritical').textContent = docs.filter(d => (d.kode_bahaya === 'AA' || d.risk_score >= 15) && d.status === 'Open').length;
 
-        const tbody = qs('#dashboardRecent');
+        // Render Tabel
         if(tbody) {
             const recents = docs.slice(0, 5);
             if(recents.length === 0) {
@@ -268,8 +292,8 @@ async function initRekap(user) {
     } catch(e) { console.error(e); }
 }
 
-/* ===========================
-   PAGE: DETAIL
+* ===========================
+   PAGE: DETAIL (Updated: Hybrid Image Loading)
    =========================== */
 async function initDetail(user) {
     const params = new URLSearchParams(window.location.hash.split('?')[1]);
@@ -277,8 +301,25 @@ async function initDetail(user) {
     if(!id) return;
 
     try {
-        const doc = await window._k3db.getInspection(id);
+        // Coba ambil dari lokal dulu
+        let doc;
+        try {
+            doc = await window._k3db.getInspection(id);
+        } catch(e) {
+            // Jika tidak ada di lokal (misal hasil search server), ambil fetch manual
+            // Note: Anda perlu membuat endpoint GET /api/inspeksi/:id di server jika mau detail full dari server
+            // Untuk sekarang kita asumsi data sync sudah masuk via Pull.
+            if(navigator.onLine) {
+                 // Fallback fetch single doc (opsional, jika Anda implement endpoint single doc)
+                 // const res = await fetch(`/api/inspeksi/${id}`); ...
+            }
+            throw new Error("Data sedang disinkronisasi atau tidak ditemukan.");
+        }
+
         const content = qs('#detailContent');
+        // ... (Render HTML Metadata sama seperti sebelumnya) ...
+        // Copy bagian render HTML metadata dari kode lama Anda di sini
+        // Mulai dari `content.innerHTML = ...` sampai sebelum `const photoCont = ...`
         
         content.innerHTML = `
             <div class="card card-pro p-4 mb-4">
@@ -334,21 +375,38 @@ async function initDetail(user) {
             </div>
         `;
 
+        // --- LOGIC FOTO HYBRID ---
         const photoCont = qs('#detailPhotos');
-        if(doc._attachments) {
+        
+        // 1. Cek apakah ada attachment lokal (Blob)? (Biasanya hasil input sendiri)
+        if(doc._attachments && Object.keys(doc._attachments).length > 0) {
             for(const k in doc._attachments) {
                 const blob = await window._k3db.db.getAttachment(doc._id, k);
                 const url = URL.createObjectURL(blob);
-                photoCont.innerHTML += `
-                    <div class="col-6 col-md-3">
-                        <a href="${url}" target="_blank">
-                            <img src="${url}" class="img-fluid rounded border shadow-sm" style="height:120px; width:100%; object-fit:cover;">
-                        </a>
-                    </div>
-                `;
+                renderImg(url);
             }
-        } else {
-            photoCont.innerHTML = '<div class="col-12 text-muted small fst-italic">Tidak ada foto terlampir.</div>';
+        } 
+        // 2. Jika tidak ada di lokal, coba load URL server (Untuk data hasil Pull)
+        else {
+            // Kita coba load 3 kemungkinan nama file (foto_1 s/d foto_3)
+            // Browser akan otomatis hide jika error (onerror)
+            [1, 2, 3].forEach(num => {
+                const url = `/api/inspeksi/${doc._id}/foto_${num}.jpg`;
+                renderImg(url, true);
+            });
+        }
+
+        function renderImg(src, isServer = false) {
+            const div = document.createElement('div');
+            div.className = 'col-6 col-md-3';
+            // Jika server, tambah handler onerror untuk sembunyikan gambar rusak/tidak ada
+            const errHandler = isServer ? `onerror="this.parentElement.style.display='none'"` : '';
+            
+            div.innerHTML = `
+                <a href="${src}" target="_blank">
+                    <img src="${src}" ${errHandler} class="img-fluid rounded border shadow-sm" style="height:120px; width:100%; object-fit:cover; background:#eee;">
+                </a>`;
+            photoCont.appendChild(div);
         }
 
         window.closeInsp = async (id) => {

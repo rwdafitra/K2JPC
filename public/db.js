@@ -19,6 +19,8 @@ if (db && typeof db.createIndex === 'function') {
     }).catch(console.warn);
 }
 
+// public/db.js (LANJUTAN SETELAH INISIALISASI DB)
+
 const _k3db = {
     db: db,
 
@@ -31,7 +33,7 @@ const _k3db = {
             doc.created_at = new Date().toISOString();
         }
         doc.type = 'inspection';
-        doc.synced = false; // Selalu false saat baru disimpan/diedit
+        doc.synced = false; 
         doc.deleted = false;
 
         try {
@@ -44,6 +46,10 @@ const _k3db = {
         if (attachments.length > 0) {
             const latest = await db.get(doc._id);
             let rev = latest._rev;
+            // Simpan nama file foto agar bisa di-load via URL server nanti
+            // (Opsional, tapi membantu)
+            // doc.foto_list = attachments.map((_, i) => `foto_${i+1}.jpg`);
+            
             for (let i = 0; i < attachments.length; i++) {
                 const att = attachments[i];
                 const attRes = await db.putAttachment(
@@ -101,16 +107,15 @@ const _k3db = {
         doc.deleted = true; 
         return await db.put(doc);
     },
-
-    // --- FITUR BARU: RESET STATUS SYNC ---
+    
     async resetSyncStatus() {
+        // Kode reset sync (sama seperti sebelumnya)
         const all = await db.allDocs({include_docs: true});
         let count = 0;
         for (const row of all.rows) {
             const doc = row.doc;
-            // Jika dokumen belum dihapus dan tipenya benar
             if (!doc.deleted && (doc.type === 'inspection' || doc.type === 'user')) {
-                doc.synced = false; // Paksa jadi belum sync
+                doc.synced = false;
                 await db.put(doc);
                 count++;
             }
@@ -118,22 +123,21 @@ const _k3db = {
         return count;
     },
 
-    // --- SYNC ENGINE ---
+    // --- SYNC ENGINE (UPDATED) ---
     async sync() {
         if(!navigator.onLine) throw new Error("Offline. Cek internet.");
         let stats = { pushed: 0, pulled: 0 };
 
         // 1. PUSH (Local -> Server)
         const allDocs = await db.allDocs({include_docs: true});
-        // Filter hanya yang synced: false
         const toPush = allDocs.rows
             .map(r => r.doc)
             .filter(d => d.synced === false && !d.deleted);
 
-        console.log(`📤 Mencoba upload ${toPush.length} data...`);
+        console.log(`📤 Uploading ${toPush.length} items...`);
 
         for(const doc of toPush) {
-            // Load full doc + attachments
+            // Ambil attachment lokal sebelum push
             const fullDoc = await db.get(doc._id, {attachments: true});
             const payload = {...fullDoc};
             delete payload._rev; 
@@ -146,17 +150,14 @@ const _k3db = {
             });
             
             if(res.ok) {
-                // Update local jadi synced: true
                 const currentLocal = await db.get(doc._id);
                 currentLocal.synced = true;
                 await db.put(currentLocal);
                 stats.pushed++;
-            } else {
-                console.error("Gagal push:", doc._id);
             }
         }
 
-        // 2. PULL (Server -> Local)
+        // 2. PULL (Server -> Local) - LOGIC FIXED
         const pull = async (url) => {
             try {
                 const res = await fetch(url);
@@ -164,13 +165,22 @@ const _k3db = {
                     const data = await res.json();
                     for(let d of data) {
                         if(d.deleted) continue;
+
+                        // HAPUS Attachments dari server agar DB Lokal tidak corrupt/berat
+                        delete d._attachments;
+
                         try {
+                            // Cek apakah data sudah ada di HP?
                             const local = await db.get(d._id);
-                            // Server wins (timpa lokal)
-                            d._rev = local._rev;
+                            
+                            // Jika ada, UPDATE menggunakan _rev lokal
+                            d._rev = local._rev; 
                             d.synced = true;
                             await db.put(d);
                         } catch(e) { 
+                            // Jika data BARU (tidak ada di HP)
+                            // PENTING: Hapus _rev dari server agar dianggap dokumen baru oleh PouchDB
+                            delete d._rev; 
                             d.synced = true; 
                             await db.put(d); 
                         }
@@ -179,6 +189,8 @@ const _k3db = {
                 }
             } catch(e) { console.warn("Pull error", url); }
         };
+        
+        // Pull Users & Inspeksi (Limit handled by server default)
         await pull(`${REMOTE_API}/users`);
         await pull(`${REMOTE_API}/inspeksi`);
 
