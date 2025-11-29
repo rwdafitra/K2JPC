@@ -23,8 +23,7 @@ const ASSETS = [
   '/pages/settings.html',
 
   // icons (hanya jika memang ada)
-  '/icon-192.png',
-  '/icon-512.png'
+  '/icon.svg',
 ];
 
 
