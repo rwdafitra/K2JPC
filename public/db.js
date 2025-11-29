@@ -1,198 +1,149 @@
-// ========================================================
-// db.js — Local Database Handler for K3 Inspection App
-// FINAL & FIXED VERSION — Compatible with router.js & main.js
-// ========================================================
+// db.js — Enterprise Grade PouchDB Wrapper
 
-// Nama database lokal PouchDB
-const DB_NAME = 'inspeksi_k3';
+const DB_NAME = 'minerba_k3_db';
+const REMOTE_API = '/api'; // Backend Express endpoints
 const db = new PouchDB(DB_NAME);
 
-// URL API untuk sinkronisasi dengan server (Express / Railway)
-const API_URL = '/api/inspeksi';
-const API_USER_URL = '/api/users';
+// Setup Indexes untuk query cepat
+db.createIndex({ index: { fields: ['type', 'created_at'] } });
+db.createIndex({ index: { fields: ['type', 'deleted'] } });
 
-// ========================================================
-//  INDEX CREATION (SAFE MODE)
-// ========================================================
-db.createIndex({ index: { fields: ['type', 'created_at'] } })
-    .catch(err => console.warn("⚠️ Index created_at gagal:", err.message));
+const _k3db = {
+    db: db,
 
-db.createIndex({ index: { fields: ['type', 'deleted'] } })
-    .catch(err => console.warn("⚠️ Index deleted gagal:", err.message));
-
-
-// ========================================================
-//  SAVE INSPECTION (CREATE OR UPDATE)
-// ========================================================
-async function saveInspection(doc, attachments = []) {
-    try {
-        // Jika dokumen baru
+    // --- CORE: INSPECTION ---
+    async saveInspection(doc, attachments = []) {
         if (!doc._id) {
-            doc._id = 'ins_' + Date.now();
+            doc._id = `insp_${new Date().getTime()}_${Math.random().toString(36).substr(2, 5)}`;
             doc.created_at = new Date().toISOString();
         }
-
         doc.type = 'inspection';
         doc.synced = false;
-        doc.deleted = doc.deleted || false;
+        doc.deleted = false;
 
-        // Simpan dokumen
         let res = await db.put(doc);
 
-        // Simpan lampiran (foto)
-        for (let i = 0; i < attachments.length; i++) {
-            const att = attachments[i];
-
-            await db.putAttachment(
-                doc._id,
-                `photo_${i}`,
-                res.rev,
-                att.blob,
-                att.type
-            ).catch(async (e) => {
-                // Jika gagal (karena rev berubah), ambil rev terbaru
+        // Handle Attachments (Foto)
+        if (attachments.length > 0) {
+            for (let i = 0; i < attachments.length; i++) {
+                const att = attachments[i];
+                // Fetch fresh rev to avoid conflict
                 const latest = await db.get(doc._id);
                 res = await db.putAttachment(
-                    doc._id,
-                    `photo_${i}`,
-                    latest._rev,
-                    att.blob,
-                    att.type
+                    doc._id, `foto_${i+1}.jpg`, latest._rev, att.blob, att.type
                 );
-            });
+            }
         }
-
         return res;
-    } catch (err) {
-        console.error("❌ saveInspection error:", err);
-        throw err;
-    }
-}
+    },
 
+    async getInspection(id) {
+        return await db.get(id, { attachments: true, binary: true });
+    },
 
-// ========================================================
-//  GET INSPECTION DETAIL
-// ========================================================
-async function getInspection(id) {
-    try {
-        return await db.get(id, { attachments: true });
-    } catch (err) {
-        console.error("❌ getInspection error:", err);
-        throw err;
-    }
-}
-
-
-// ========================================================
-//  LIST ALL INSPECTIONS
-// ========================================================
-async function listInspections(limit = 200) {
-    try {
-        // Try using pouchdb-find
-        const found = await db.find({
-            selector: { type: 'inspection', deleted: false },
+    async listInspections(limit = 1000) {
+        // Query offline only, sorted by newest
+        const result = await db.find({
+            selector: { type: 'inspection', deleted: { $ne: true } },
             sort: [{ created_at: 'desc' }],
             limit
         });
-        return found.docs;
+        return result.docs;
+    },
 
-    } catch (err) {
-        console.warn("⚠️ listInspections fallback (find gagal):", err.message);
-
-        // Fallback manual — allDocs
-        const all = await db.allDocs({ include_docs: true });
-        return all.rows
-            .map(r => r.doc)
-            .filter(d => d && d.type === 'inspection' && !d.deleted)
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-            .slice(0, limit);
-    }
-}
-
-
-// ========================================================
-//  SOFT DELETE INSPECTION
-// ========================================================
-async function softDeleteInspection(id) {
-    try {
+    async softDelete(id) {
         const doc = await db.get(id);
         doc.deleted = true;
         doc.synced = false;
         return await db.put(doc);
-    } catch (err) {
-        console.error("❌ softDeleteInspection error:", err);
-        throw err;
-    }
-}
+    },
 
+    // --- CORE: USER ---
+    async saveUser(user) {
+        user._id = user._id || `user_${user.username}`;
+        user.type = 'user';
+        user.synced = false;
+        try {
+            const exist = await db.get(user._id);
+            user._rev = exist._rev;
+        } catch(e) {} // ignore 404
+        return await db.put(user);
+    },
 
-// ========================================================
-//  USER MANAGEMENT
-// ========================================================
+    async listUsers() {
+        const res = await db.find({ selector: { type: 'user', deleted: { $ne: true } } });
+        return res.docs;
+    },
 
-// CREATE / UPDATE USER
-async function saveUser(userDoc) {
-    try {
-        if (!userDoc._id) {
-            userDoc._id = 'user_' + userDoc.username;
-            userDoc.created_at = new Date().toISOString();
+    // --- CORE: SYNC ENGINE ---
+    async sync() {
+        if (!navigator.onLine) throw new Error("Tidak ada koneksi internet.");
+
+        let stats = { pushed: 0, pulled: 0 };
+
+        // 1. PUSH (Upload Local -> Server)
+        const toPush = await db.find({ selector: { synced: false } });
+        for (const doc of toPush.docs) {
+            const payload = { ...doc };
+            delete payload._rev; 
+            delete payload._attachments; // Kirim metadata json dulu
+
+            // Tentukan endpoint berdasarkan tipe
+            const endpoint = (doc.type === 'user') ? `${REMOTE_API}/users` : `${REMOTE_API}/inspeksi/${doc._id}`;
+            
+            const res = await fetch(endpoint, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                // Tandai synced lokal
+                doc.synced = true;
+                await db.put(doc);
+                stats.pushed++;
+            }
         }
 
-        userDoc.type = 'user';
-        userDoc.synced = false;
-        userDoc.deleted = userDoc.deleted || false;
+        // 2. PULL (Download Server -> Local)
+        // Tarik User
+        const resUsers = await fetch(`${REMOTE_API}/users`);
+        if(resUsers.ok) {
+            const users = await resUsers.json();
+            for(let u of users) {
+                try {
+                    const local = await db.get(u._id);
+                    u._rev = local._rev; // Update
+                    u.synced = true;
+                    await db.put(u);
+                } catch(e) {
+                    u.synced = true;
+                    await db.put(u); // Insert new
+                }
+            }
+        }
 
-        const existing = await db.get(userDoc._id).catch(() => null);
-        if (existing) userDoc._rev = existing._rev;
+        // Tarik Inspeksi
+        const resInsp = await fetch(`${REMOTE_API}/inspeksi`);
+        if(resInsp.ok) {
+            const inspections = await resInsp.json();
+            for(let i of inspections) {
+                if(i.deleted) continue; // Skip deleted from server
+                try {
+                    const local = await db.get(i._id);
+                    i._rev = local._rev;
+                    i.synced = true;
+                    await db.put(i);
+                } catch(e) {
+                    i.synced = true;
+                    await db.put(i);
+                }
+                stats.pulled++;
+            }
+        }
 
-        return await db.put(userDoc);
-
-    } catch (err) {
-        console.error("❌ saveUser error:", err);
-        throw err;
+        return stats;
     }
-}
-
-// LIST USERS
-async function listUsers() {
-    try {
-        const found = await db.find({
-            selector: { type: 'user', deleted: false },
-            sort: [{ name: 'asc' }]
-        });
-        return found.docs;
-
-    } catch (err) {
-        console.warn("⚠️ listUsers fallback:", err.message);
-
-        const all = await db.allDocs({ include_docs: true });
-        return all.rows
-            .map(r => r.doc)
-            .filter(d => d && d.type === 'user' && !d.deleted);
-    }
-}
-
-
-// ========================================================
-//  EXPORT — INI PENTING (FIX UTAMA)
-// ========================================================
-//
-// Semua fungsi database disatukan dalam `_k3db`.
-// Inilah alasan error “saveInspection undefined” muncul sebelumnya —
-// kamu memanggil `db.saveInspection`, padahal seharusnya `_k3db.saveInspection`.
-//
-window._k3db = {
-    db,                      // PouchDB instance
-    API_URL,
-    API_USER_URL,
-
-    // Inspeksi
-    saveInspection,
-    getInspection,
-    listInspections,
-    softDeleteInspection,
-
-    // User mgmt
-    saveUser,
-    listUsers
 };
+
+window._k3db = _k3db;

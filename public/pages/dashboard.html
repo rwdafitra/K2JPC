@@ -1,104 +1,106 @@
-<!-- pages/dashboard.html -->
-<div class="container">
-  <div class="row mb-3">
-    <div class="col-md-8">
-      <h4>Dashboard</h4>
-      <p class="text-muted small">Ringkasan Inspeksi Terencana Minerba</p>
-    </div>
-    <div class="col-md-4 text-end">
-      <small class="text-muted">Last sync: <span id="lastSyncDisplay">-</span></small>
-    </div>
-  </div>
+<div class="container-fluid">
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card card-pro h-100 border-start border-4 border-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted small mb-1 fw-bold text-uppercase">Total Inspeksi</p>
+                            <h2 class="fw-bold mb-0 text-dark" id="statTotal">0</h2>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
+                            <i class="bi bi-clipboard-data fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-  <div class="row g-3">
-    <div class="col-sm-6 col-md-3">
-      <div class="card p-3">
-        <div class="small text-muted">Total Inspeksi</div>
-        <div class="h3" id="kt-total">0</div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-md-3">
-      <div class="card p-3">
-        <div class="small text-muted">Open</div>
-        <div class="h3" id="kt-open">0</div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-md-3">
-      <div class="card p-3">
-        <div class="small text-muted">Closed</div>
-        <div class="h3" id="kt-closed">0</div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-md-3">
-      <div class="card p-3">
-        <div class="small text-muted">Critical (Risk ≥ 15)</div>
-        <div class="h3 text-danger" id="kt-critical">0</div>
-      </div>
-    </div>
-  </div>
+        <div class="col-md-3">
+            <div class="card card-pro h-100 border-start border-4 border-danger">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted small mb-1 fw-bold text-uppercase">Temuan Kritis (AA)</p>
+                            <h2 class="fw-bold mb-0 text-danger" id="statCritical">0</h2>
+                        </div>
+                        <div class="bg-danger bg-opacity-10 p-3 rounded-circle text-danger">
+                            <i class="bi bi-exclamation-octagon fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-  <div class="mt-4">
-    <div id="dashboardAlert"></div>
-  </div>
+        <div class="col-md-3">
+            <div class="card card-pro h-100 border-start border-4 border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted small mb-1 fw-bold text-uppercase">Status Open</p>
+                            <h2 class="fw-bold mb-0 text-warning" id="statOpen">0</h2>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 p-3 rounded-circle text-warning">
+                            <i class="bi bi-clock-history fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-  <div class="mt-4 card">
-    <div class="card-header">
-      Ringkasan 10 Inspeksi Terbaru
-      <div class="float-end">
-        <button class="btn btn-sm btn-outline-primary" onclick="router.navigateTo('rekap')"><i class="bi bi-list"></i> Lihat Semua</button>
-      </div>
+        <div class="col-md-3">
+            <div class="card card-pro h-100 border-start border-4 border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted small mb-1 fw-bold text-uppercase">Status Closed</p>
+                            <h2 class="fw-bold mb-0 text-success" id="statClosed">0</h2>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-3 rounded-circle text-success">
+                            <i class="bi bi-check-circle fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-sm mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>Tanggal</th>
-              <th>Inspector</th>
-              <th>Lokasi</th>
-              <th>Uraian</th>
-              <th>Risk</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="dashboardRecent">
-            <!-- akan diisi oleh main.js (initDashboard memanggil listInspections) -->
-          </tbody>
-        </table>
-      </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card card-pro h-100">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0">Aktivitas Inspeksi Terbaru</h6>
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="router.navigateTo('rekap')">Lihat Semua</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle table-hover mb-0">
+                        <thead class="table-light small">
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Lokasi</th>
+                                <th>Risk</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboardRecent" class="small">
+                            <tr><td colspan="5" class="text-center py-4 text-muted">Memuat data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card card-pro h-100 bg-primary text-white" style="background: linear-gradient(135deg, #0F2C59 0%, #1e4580 100%);">
+                <div class="card-body p-4 text-center d-flex flex-column justify-content-center">
+                    <h5 class="fw-bold mb-2">Input Inspeksi Baru</h5>
+                    <p class="opacity-75 small mb-4">Temukan bahaya, laporkan segera, selamatkan nyawa.</p>
+                    <button class="btn btn-light text-primary fw-bold py-2 w-100 shadow-sm" onclick="router.navigateTo('input')">
+                        <i class="bi bi-plus-lg me-2"></i> Buat Laporan
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
-
-<script>
-  // Render snippet recent rows (dipanggil oleh main.initDashboard via listInspections)
-  async function renderDashboardRecent() {
-    if (!window._k3db || !window._k3db.listInspections) return;
-    try {
-      const docs = await window._k3db.listInspections(10);
-      const rows = docs.slice(0,10).map(doc => `
-        <tr>
-          <td>${doc.tanggal_inspeksi || '-'}</td>
-          <td>${doc.inspector || '-'}</td>
-          <td>${(doc.lokasi || '-') + ' / ' + (doc.area || '-')}</td>
-          <td>${(doc.uraian_temuan || '').substring(0,60)}${(doc.uraian_temuan||'').length>60?'...':''}</td>
-          <td>${doc.risk_category || '-'} (${doc.risk_score || 0})</td>
-          <td><span class="badge bg-${doc.status==='Open'?'warning':'success'}">${doc.status||'-'}</span></td>
-          <td>
-            <button class="btn btn-sm btn-info" onclick="router.navigateTo('detail',{id:'${doc._id}'})"><i class="bi bi-eye"></i></button>
-          </td>
-        </tr>
-      `).join('');
-      document.getElementById('dashboardRecent').innerHTML = rows || `<tr><td colspan="7" class="text-center">Belum ada data</td></tr>`;
-    } catch(e) {
-      document.getElementById('dashboardRecent').innerHTML = `<tr><td colspan="7" class="text-danger">Gagal memuat: ${e.message}</td></tr>`;
-    }
-  }
-
-  // jalankan saat page dimuat
-  (function(){
-    setTimeout(renderDashboardRecent, 200);
-    document.getElementById('lastSyncDisplay').textContent = document.getElementById('lastSync') ? document.getElementById('lastSync').textContent : '-';
-  })();
-</script>

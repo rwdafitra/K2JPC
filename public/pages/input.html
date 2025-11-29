@@ -1,125 +1,184 @@
-<!-- pages/input.html -->
-<div class="container">
-  <h4>Input Inspeksi Terencana - Minerba</h4>
-  <p class="small text-muted">Silakan isi seluruh kolom dengan lengkap. Form ini mencakup data teknis, legal, dan tindak lanjut.</p>
+<div class="container-fluid">
+  <div class="card card-pro mb-4">
+    <div class="card-body p-4">
+      <h5 class="fw-bold text-primary mb-3"><i class="bi bi-file-earmark-text me-2"></i>Formulir Inspeksi K3 Pertambangan</h5>
+      <p class="text-muted small">Sesuai standar Kepdirjen Minerba No. 185 Th 2019. Isi data dengan lengkap dan faktual.</p>
+      
+      <form id="formMinerba" class="needs-validation" novalidate>
+        
+        <div class="accordion" id="accForm">
+          
+          <div class="accordion-item border-0 shadow-sm mb-3 rounded overflow-hidden">
+            <h2 class="accordion-header">
+              <button class="accordion-button fw-bold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#c1">
+                1. Data Umum & Lokasi
+              </button>
+            </h2>
+            <div id="c1" class="accordion-collapse collapse show" data-bs-parent="#accForm">
+              <div class="accordion-body row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold">Tanggal & Jam</label>
+                  <input type="datetime-local" id="f_tanggal" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold">Inspector</label>
+                  <input type="text" id="f_inspector" class="form-control bg-light" readonly />
+                  <input type="hidden" id="f_inspectorId" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold">Shift Kerja</label>
+                  <select id="f_shift" class="form-select" required>
+                    <option value="Day (Siang)">Day (Siang)</option>
+                    <option value="Night (Malam)">Night (Malam)</option>
+                  </select>
+                </div>
 
-  <form id="formMinerba" class="row g-3 needs-validation" novalidate>
-    <div class="col-md-3">
-      <label class="form-label">Tanggal Inspeksi</label>
-      <input type="date" id="f_tanggal_inspeksi" class="form-control" required />
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Inspector (Nama)</label>
-      <input type="text" id="f_inspector" class="form-control" readonly required />
-      <input type="hidden" id="f_inspectorId" />
-    </div>
-    <div class="col-md-6">
-      <label class="form-label">Lokasi / Unit Kerja</label>
-      <input type="text" id="f_location" class="form-control" placeholder="Lokasi tambang / unit" required />
-    </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold">Lokasi / PIT / Area</label>
+                  <input type="text" id="f_lokasi" class="form-control" placeholder="Contoh: PIT 3 West - Front Loading" required />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Cuaca</label>
+                  <select id="f_cuaca" class="form-select">
+                    <option>Cerah</option>
+                    <option>Berawan</option>
+                    <option>Hujan Ringan</option>
+                    <option>Hujan Deras</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Perusahaan / Kontraktor</label>
+                  <input type="text" id="f_perusahaan" class="form-control" placeholder="Nama PT/Dept" required/>
+                </div>
+              </div>
+            </div>
+          </div>
 
-    <div class="col-md-4">
-      <label class="form-label">Area / Seksi</label>
-      <input type="text" id="f_area" class="form-control" placeholder="Contoh: Pit A / Stockpile" />
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">Jenis Kegiatan</label>
-      <select id="f_activity" class="form-select">
-        <option value="">-- Pilih --</option>
-        <option value="Penambangan">Penambangan</option>
-        <option value="Pengolahan">Pengolahan</option>
-        <option value="Transport">Transport</option>
-        <option value="Pemeliharaan">Pemeliharaan</option>
-        <option value="Pengurukan">Pengurukan</option>
-      </select>
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">Kategori Temuan (sesuai minerba)</label>
-      <select id="f_category" class="form-select">
-        <option value="">-- Pilih Kategori --</option>
-        <option value="Keselamatan Kerja">Keselamatan Kerja</option>
-        <option value="Lingkungan">Lingkungan</option>
-        <option value="Perizinan">Perizinan</option>
-        <option value="Operasional">Operasional</option>
-        <option value="K3 Umum">K3 Umum</option>
-      </select>
-    </div>
+          <div class="accordion-item border-0 shadow-sm mb-3 rounded overflow-hidden">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed fw-bold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#c2">
+                2. Detail Temuan & Analisa Risiko
+              </button>
+            </h2>
+            <div id="c2" class="accordion-collapse collapse" data-bs-parent="#accForm">
+              <div class="accordion-body row g-3">
+                <div class="col-12">
+                  <label class="form-label small fw-bold">Uraian Temuan Bahaya (Hazard)</label>
+                  <textarea id="f_uraian" class="form-control" rows="3" placeholder="Deskripsikan kondisi tidak aman (KTA) atau tindakan tidak aman (TTA) secara detail..." required></textarea>
+                </div>
+                
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold">Kode Bahaya</label>
+                  <select id="f_kode_bahaya" class="form-select" required>
+                    <option value="AA">AA - Critical (Stop Operasi)</option>
+                    <option value="A">A - Major (Segera Perbaiki)</option>
+                    <option value="B">B - Moderate (Perbaiki < 3 Hari)</option>
+                    <option value="C">C - Minor (Perbaiki saat maintenance)</option>
+                  </select>
+                </div>
 
-    <div class="col-12">
-      <label class="form-label">Uraian Temuan (Detail)</label>
-      <textarea id="f_uraian" class="form-control" rows="4" required placeholder="Deskripsikan kondisi, lokasi, waktu, dan bukti pendukung"></textarea>
-    </div>
+                <div class="col-md-8">
+                  <div class="card bg-light border-0 p-2">
+                    <label class="small fw-bold mb-2">Penilaian Risiko (Matriks 5x5)</label>
+                    <div class="row g-2">
+                      <div class="col-4">
+                        <small>Keparahan (S)</small>
+                        <select id="f_sev" class="form-select form-select-sm">
+                          <option value="1">1 - Insignificant</option>
+                          <option value="2">2 - Minor</option>
+                          <option value="3">3 - Moderate</option>
+                          <option value="4">4 - Major</option>
+                          <option value="5">5 - Catastrophic</option>
+                        </select>
+                      </div>
+                      <div class="col-4">
+                        <small>Kemungkinan (P)</small>
+                        <select id="f_prob" class="form-select form-select-sm">
+                          <option value="1">1 - Rare</option>
+                          <option value="2">2 - Unlikely</option>
+                          <option value="3">3 - Possible</option>
+                          <option value="4">4 - Likely</option>
+                          <option value="5">5 - Almost Certain</option>
+                        </select>
+                      </div>
+                      <div class="col-4">
+                        <small>Level Risiko</small>
+                        <input type="text" id="f_risk_level" class="form-control form-select-sm fw-bold text-center" readonly value="LOW" style="background:#d1e7dd;">
+                        <input type="hidden" id="f_risk_score" value="1">
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-    <div class="col-md-6">
-      <label class="form-label">Rekomendasi Tindak Lanjut</label>
-      <textarea id="f_rekomendasi" class="form-control" rows="3" placeholder="Rekomendasi teknis/administratif"></textarea>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Target Tindak Lanjut (YYYY-MM-DD)</label>
-      <input type="date" id="f_target_tl" class="form-control" />
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Referensi Hukum / Peraturan</label>
-      <input type="text" id="f_ref_hukum" class="form-control" placeholder="Pasal / Peraturan (jika ada)" />
-    </div>
+              </div>
+            </div>
+          </div>
 
-    <!-- Risk calculator -->
-    <div class="col-md-2">
-      <label class="form-label">Severity (S)</label>
-      <input type="number" id="f_sev" min="0" max="10" class="form-control" />
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Likelihood (L)</label>
-      <input type="number" id="f_like" min="0" max="10" class="form-control" />
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Risk Score</label>
-      <input type="number" id="f_risk" class="form-control" readonly />
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Risk Category</label>
-      <input type="text" id="f_risk_cat" class="form-control" readonly />
-    </div>
+          <div class="accordion-item border-0 shadow-sm mb-3 rounded overflow-hidden">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed fw-bold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#c3">
+                3. Rekomendasi & Pengendalian
+              </button>
+            </h2>
+            <div id="c3" class="accordion-collapse collapse" data-bs-parent="#accForm">
+              <div class="accordion-body row g-3">
+                <div class="col-12">
+                  <label class="form-label small fw-bold">Tindakan Perbaikan / Rekomendasi</label>
+                  <textarea id="f_rekomendasi" class="form-control" rows="3" placeholder="Langkah korektif yang harus dilakukan..." required></textarea>
+                </div>
 
-    <div class="col-md-4">
-      <label class="form-label">Status (default Open)</label>
-      <select id="f_status" class="form-select" disabled>
-        <option>Open</option>
-      </select>
-    </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-bold">Hirarki Pengendalian</label>
+                  <select id="f_hirarki" class="form-select">
+                    <option value="Eliminasi">1. Eliminasi (Hilangkan Bahaya)</option>
+                    <option value="Substitusi">2. Substitusi (Ganti Alat/Metode)</option>
+                    <option value="Rekayasa Teknis">3. Rekayasa Teknis (Engineering)</option>
+                    <option value="Administrasi">4. Administrasi (Rambu/SOP)</option>
+                    <option value="APD">5. APD (Alat Pelindung Diri)</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">PIC / Penanggung Jawab</label>
+                  <input type="text" id="f_pic" class="form-control" placeholder="Nama / Jabatan" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-bold">Due Date (Batas Waktu)</label>
+                  <input type="date" id="f_duedate" class="form-control" required />
+                </div>
+              </div>
+            </div>
+          </div>
 
-    <div class="col-md-6">
-      <label class="form-label">GPS (lat,lng)</label>
-      <input type="text" id="f_gps" class="form-control" placeholder="contoh: -1.2345, 116.1234" />
-      <div class="small text-muted">Opsional: masukkan koordinat lokasi inspeksi</div>
-    </div>
+          <div class="accordion-item border-0 shadow-sm mb-3 rounded overflow-hidden">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed fw-bold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#c4">
+                4. Bukti Foto & Validasi
+              </button>
+            </h2>
+            <div id="c4" class="accordion-collapse collapse" data-bs-parent="#accForm">
+              <div class="accordion-body">
+                 <div class="mb-3">
+                    <label class="form-label small fw-bold">Foto Temuan (Maks. 3 Foto)</label>
+                    <input type="file" id="f_foto" class="form-control" accept="image/*" multiple capture="environment">
+                    <div class="form-text">Gunakan kamera HP untuk dokumentasi langsung.</div>
+                 </div>
+                 
+                 <div class="alert alert-warning d-flex align-items-center" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
+                    <div class="small">
+                      Dengan menyimpan data ini, Anda menyatakan bahwa inspeksi dilakukan secara objektif sesuai kaidah keselamatan pertambangan.
+                    </div>
+                  </div>
+              </div>
+            </div>
+          </div>
 
-    <div class="col-md-6">
-      <label class="form-label">Foto Bukti</label>
-      <input type="file" id="f_photos" class="form-control" accept="image/*" multiple />
-      <div class="small text-muted">Foto akan disimpan sebagai attachment di PouchDB.</div>
-    </div>
+        </div> <div class="d-flex justify-content-end gap-2 mt-4">
+          <button type="button" class="btn btn-light border px-4" onclick="router.navigateTo('dashboard')">Batal</button>
+          <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm">SIMPAN INSPEKSI</button>
+        </div>
 
-    <div class="col-12 text-end">
-      <button type="submit" class="btn btn-primary">Simpan (Lokal)</button>
-      <button type="button" class="btn btn-outline-secondary" onclick="router.navigateTo('dashboard')">Batal</button>
+      </form>
     </div>
-  </form>
+  </div>
 </div>
-
-<script>
-  // Validasi form bootstrap simple
-  (function () {
-    'use strict'
-    const forms = document.querySelectorAll('.needs-validation')
-    Array.prototype.slice.call(forms).forEach(function (form) {
-      form.addEventListener('submit', function (event) {
-        if (!form.checkValidity()) {
-          event.preventDefault()
-          event.stopPropagation()
-        }
-        form.classList.add('was-validated')
-      }, false)
-    })
-  })();
-</script>
