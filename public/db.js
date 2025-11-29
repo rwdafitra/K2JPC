@@ -1,7 +1,5 @@
-// db.js — Robust PouchDB Wrapper
-
-// Nama DB Lokal. Jika di HP, ini tersimpan di browser storage.
-const DB_NAME = 'minerba_k3_v2';
+// public/db.js — FINAL FIXED VERSION
+const DB_NAME = 'minerba_k3_v3'; // Versi baru untuk reset struktur
 const REMOTE_API = '/api'; 
 
 // Init DB
@@ -11,13 +9,13 @@ try {
     console.log("✅ PouchDB Initialized:", DB_NAME);
 } catch(e) {
     console.error("❌ PouchDB Init Failed:", e);
-    alert("Database lokal gagal dimuat. Coba refresh atau gunakan browser lain (Chrome/Safari).");
+    alert("Gagal memuat database lokal. Pastikan tidak dalam Mode Incognito/Private yang ketat.");
 }
 
-// Create Index (Async, don't wait)
+// Create Indexes
 if(db) {
-    db.createIndex({ index: { fields: ['type', 'created_at'] } }).catch(e=>console.warn(e));
-    db.createIndex({ index: { fields: ['type', 'deleted'] } }).catch(e=>console.warn(e));
+    db.createIndex({ index: { fields: ['type', 'created_at'] } }).catch(console.warn);
+    db.createIndex({ index: { fields: ['type', 'deleted'] } }).catch(console.warn);
 }
 
 const _k3db = {
@@ -25,39 +23,33 @@ const _k3db = {
 
     // --- INSPECTIONS ---
     async saveInspection(doc, attachments = []) {
-        if(!db) throw new Error("Database not ready");
+        if(!db) throw new Error("Database belum siap");
         
-        // Generate Unique ID if new
         if (!doc._id) {
             doc._id = `insp_${Date.now()}_${Math.floor(Math.random()*1000)}`;
             doc.created_at = new Date().toISOString();
         }
-        
         doc.type = 'inspection';
         doc.synced = false;
         doc.deleted = false;
 
-        // Try update existing rev if exists
         try {
             const existing = await db.get(doc._id);
             doc._rev = existing._rev;
-        } catch(e) {} // New doc
+        } catch(e) {} 
 
         let res = await db.put(doc);
 
-        // Handle Attachments
+        // Save Photos
         if (attachments.length > 0) {
-            // Fetch latest rev after put
             const latest = await db.get(doc._id);
             let rev = latest._rev;
-
             for (let i = 0; i < attachments.length; i++) {
                 const att = attachments[i];
-                // Put attachment
                 const attRes = await db.putAttachment(
                     doc._id, `foto_${i+1}.jpg`, rev, att.blob, att.type
                 );
-                rev = attRes.rev; // update rev for next attachment
+                rev = attRes.rev;
             }
             res = { ...res, rev: rev };
         }
@@ -69,7 +61,6 @@ const _k3db = {
     },
 
     async listInspections(limit = 1000) {
-        // Fallback jika find plugin error
         try {
             const res = await db.find({
                 selector: { type: 'inspection', deleted: { $ne: true } },
@@ -78,7 +69,7 @@ const _k3db = {
             });
             return res.docs;
         } catch(e) {
-            // Fallback manual filter
+            // Fallback manual jika index belum siap
             const all = await db.allDocs({include_docs: true, descending: true});
             return all.rows
                 .map(r => r.doc)
@@ -87,20 +78,57 @@ const _k3db = {
         }
     },
 
-    // --- SYNC ENGINE (Manual Push/Pull via API) ---
+    // --- USERS (INI YANG SEBELUMNYA HILANG) ---
+    async saveUser(user) {
+        if(!db) throw new Error("Database belum siap");
+        // Gunakan format ID khusus user
+        user._id = user._id || `user_${user.username}`;
+        user.type = 'user';
+        user.synced = false;
+        user.deleted = false;
+        
+        try {
+            const existing = await db.get(user._id);
+            user._rev = existing._rev;
+        } catch(e) {}
+        
+        return await db.put(user);
+    },
+
+    async listUsers() {
+        try {
+            const res = await db.find({
+                selector: { type: 'user', deleted: { $ne: true } }
+            });
+            return res.docs;
+        } catch(e) {
+            const all = await db.allDocs({include_docs: true});
+            return all.rows.map(r => r.doc).filter(d => d.type === 'user' && !d.deleted);
+        }
+    },
+
+    async deleteUser(id) {
+        const doc = await db.get(id);
+        doc.deleted = true;
+        doc.synced = false;
+        return await db.put(doc);
+    },
+
+    // --- SYNC ENGINE ---
     async sync() {
         if(!navigator.onLine) throw new Error("Tidak ada koneksi internet.");
         let stats = { pushed: 0, pulled: 0 };
 
-        // 1. PUSH
+        // 1. PUSH (Local -> Server)
         const toPush = await db.find({ selector: { synced: false } });
         for(const doc of toPush.docs) {
             const payload = {...doc};
             delete payload._rev; 
             delete payload._attachments; 
             
-            // Kirim ke server
-            const endpoint = (doc.type==='user') ? `${REMOTE_API}/users` : `${REMOTE_API}/inspeksi/${doc._id}`;
+            // Endpoint beda untuk user & inspeksi
+            const endpoint = (doc.type === 'user') ? `${REMOTE_API}/users` : `${REMOTE_API}/inspeksi/${doc._id}`;
+            
             const res = await fetch(endpoint, {
                 method: 'PUT',
                 headers: {'Content-Type':'application/json'},
@@ -114,28 +142,50 @@ const _k3db = {
             }
         }
 
-        // 2. PULL (Inspeksi only for demo)
-        const resInsp = await fetch(`${REMOTE_API}/inspeksi`);
-        if(resInsp.ok) {
-            const remoteDocs = await resInsp.json();
-            for(let r of remoteDocs) {
-                if(r.deleted) continue;
-                try {
-                    const local = await db.get(r._id);
-                    r._rev = local._rev; // Update local
-                    r.synced = true;
-                    await db.put(r);
-                } catch(e) {
-                    r.synced = true;
-                    await db.put(r); // Insert new
+        // 2. PULL (Server -> Local)
+        // Pull Users
+        try {
+            const resUsers = await fetch(`${REMOTE_API}/users`);
+            if(resUsers.ok) {
+                const users = await resUsers.json();
+                for(let u of users) {
+                    if(u.deleted) continue;
+                    try {
+                        const local = await db.get(u._id);
+                        u._rev = local._rev;
+                        u.synced = true;
+                        await db.put(u);
+                    } catch(e) {
+                        u.synced = true;
+                        await db.put(u);
+                    }
                 }
-                stats.pulled++;
             }
-        }
+        } catch(e) { console.warn("Pull Users Failed", e); }
+
+        // Pull Inspections
+        try {
+            const resInsp = await fetch(`${REMOTE_API}/inspeksi`);
+            if(resInsp.ok) {
+                const inspections = await resInsp.json();
+                for(let i of inspections) {
+                    if(i.deleted) continue;
+                    try {
+                        const local = await db.get(i._id);
+                        i._rev = local._rev;
+                        i.synced = true;
+                        await db.put(i);
+                    } catch(e) {
+                        i.synced = true;
+                        await db.put(i);
+                    }
+                    stats.pulled++;
+                }
+            }
+        } catch(e) { console.warn("Pull Inspections Failed", e); }
 
         return stats;
     }
 };
 
-// Expose globally
 window._k3db = _k3db;
