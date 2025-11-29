@@ -1,15 +1,23 @@
+// public/main.js — FINAL COMPLETE VERSION
+
 /* =========================================
-   MINERBASAFE MAIN CONTROLLER - FIXED
+   MINERBASAFE MAIN CONTROLLER
    ========================================= */
 
 // --- UTILS ---
 const qs = (s) => document.querySelector(s);
 const qsa = (s) => document.querySelectorAll(s);
-const getUser = () => JSON.parse(localStorage.getItem('currentUser') || '{"username":"guest","role":"Inspector","name":"Guest"}');
+const getUser = () => {
+    try {
+        let user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!user) return null;
+        return user;
+    } catch (e) { return null; }
+};
 const formatDate = (d) => d ? new Date(d).toLocaleString('id-ID', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '-';
 
 /* =========================================
-   NAVIGATION & UI LOGIC (FIXED)
+   NAVIGATION & UI LOGIC
    ========================================= */
 function initNavigation() {
     const sidebar = qs('#sidebar');
@@ -18,13 +26,13 @@ function initNavigation() {
     const btnClose = qs('#btnCloseSidebar');
 
     function openMenu() {
-        sidebar.classList.add('show');
-        overlay.classList.add('show');
+        sidebar?.classList.add('show');
+        overlay?.classList.add('show');
     }
 
     function closeMenu() {
-        sidebar.classList.remove('show');
-        overlay.classList.remove('show');
+        sidebar?.classList.remove('show');
+        overlay?.classList.remove('show');
     }
 
     // Event Listeners
@@ -43,6 +51,8 @@ function initNavigation() {
     function updateOnlineStatus() {
         const dot = qs('#onlineIndicator');
         const text = qs('#syncStatusText');
+        if (!dot || !text) return;
+
         if(navigator.onLine) {
             dot.classList.add('online'); text.textContent = "Online";
         } else {
@@ -55,20 +65,27 @@ function initNavigation() {
 }
 
 // Init Nav segera
-initNavigation();
+document.addEventListener('DOMContentLoaded', initNavigation);
 
 // --- ROUTER HOOK ---
 window.onPageLoaded = function(page) {
-    const user = getUser();
+    let user = getUser();
     
+    // LOGIKA LOGIN SEDERHANA
+    if (!user) {
+        user = { username: 'guest', role: 'Inspector', name: 'Tamu (Guest)' };
+        localStorage.setItem('currentUser', JSON.stringify(user));
+        if(page === 'dashboard') alert("Selamat Datang! Anda masuk sebagai Tamu.");
+    }
+
     // Update Active Link
     qsa('.nav-link').forEach(l => l.classList.remove('active'));
     qs(`.nav-link[data-page="${page}"]`)?.classList.add('active');
     
     // Update User Info
-    qs('#userNameDisplay').textContent = user.name;
-    qs('#userRoleDisplay').textContent = user.role;
-    qs('#userInitials').textContent = user.name.charAt(0).toUpperCase();
+    if(qs('#userNameDisplay')) qs('#userNameDisplay').textContent = user.name;
+    if(qs('#userRoleDisplay')) qs('#userRoleDisplay').textContent = user.role;
+    if(qs('#userInitials')) qs('#userInitials').textContent = user.name.charAt(0).toUpperCase();
 
     // Set Page Title
     const titles = {
@@ -81,8 +98,8 @@ window.onPageLoaded = function(page) {
         'settings': ['Pengaturan', 'Konfigurasi Aplikasi']
     };
     if(titles[page]) {
-        qs('#pageTitle').textContent = titles[page][0];
-        qs('#pageSubtitle').textContent = titles[page][1];
+        if(qs('#pageTitle')) qs('#pageTitle').textContent = titles[page][0];
+        if(qs('#pageSubtitle')) qs('#pageSubtitle').textContent = titles[page][1];
     }
 
     // Init Page Logic
@@ -145,19 +162,21 @@ function initInput(user) {
 
     // Risk Calculator
     function calcRisk() {
-        const s = parseInt(qs('#f_sev').value);
-        const p = parseInt(qs('#f_prob').value);
+        const s = parseInt(qs('#f_sev').value) || 1;
+        const p = parseInt(qs('#f_prob').value) || 1;
         const score = s * p;
-        qs('#f_risk_score').value = score;
+        if(qs('#f_risk_score')) qs('#f_risk_score').value = score;
         const label = qs('#f_risk_level');
         
-        if(score >= 15) { label.value = 'EXTREME'; label.style.background='#dc3545'; label.style.color='#fff'; }
-        else if(score >= 10) { label.value = 'HIGH'; label.style.background='#fd7e14'; label.style.color='#fff'; }
-        else if(score >= 5) { label.value = 'MODERATE'; label.style.background='#ffc107'; label.style.color='#000'; }
-        else { label.value = 'LOW'; label.style.background='#198754'; label.style.color='#fff'; }
+        if(label) {
+            if(score >= 15) { label.value = 'EXTREME'; label.style.background='#dc3545'; label.style.color='#fff'; }
+            else if(score >= 10) { label.value = 'HIGH'; label.style.background='#fd7e14'; label.style.color='#fff'; }
+            else if(score >= 5) { label.value = 'MODERATE'; label.style.background='#ffc107'; label.style.color='#000'; }
+            else { label.value = 'LOW'; label.style.background='#198754'; label.style.color='#fff'; }
+        }
     }
-    qs('#f_sev').addEventListener('change', calcRisk);
-    qs('#f_prob').addEventListener('change', calcRisk);
+    qs('#f_sev')?.addEventListener('change', calcRisk);
+    qs('#f_prob')?.addEventListener('change', calcRisk);
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -330,6 +349,181 @@ async function initDetail(user) {
     }
 }
 
+/* ===========================
+   USERS LOGIC
+   =========================== */
+async function initUsers(user) {
+    if (!window._k3db?.listUsers) return;
+    const body = qs('#userTableBody');
+    const form = qs('#userForm');
+    if (!body || !form) return;
+
+    // Hanya render jika Manager/Admin
+    // if (user.role !== 'Manager' && user.role !== 'Admin') {
+    //     body.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Akses Ditolak.</td></tr>';
+    //     return;
+    // }
+
+    async function render() {
+        const users = await window._k3db.listUsers();
+        if (users.length === 0) {
+            body.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Belum ada user.</td></tr>';
+            return;
+        }
+        body.innerHTML = users.map(u => `
+            <tr>
+               <td>${u.name}</td>
+               <td>${u.username}</td>
+               <td><span class="badge bg-secondary">${u.role}</span></td>
+               <td>
+                 <button class="btn btn-sm btn-danger" onclick="deleteUser('${u._id}')"><i class="bi bi-trash"></i></button>
+               </td>
+            </tr>
+        `).join('');
+    }
+
+    window.deleteUser = async (id) => {
+        if(!confirm("Hapus user ini?")) return;
+        try {
+            await window._k3db.deleteUser(id);
+            render();
+        } catch(e) { alert("Gagal hapus: " + e.message); }
+    };
+
+    // Tambah listener dengan proteksi duplikasi (replace node)
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+    
+    newForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const doc = {
+            username: qs('#f_uname').value,
+            name: qs('#f_name').value,
+            role: qs('#f_role').value
+        };
+        try {
+            await window._k3db.saveUser(doc);
+            newForm.reset();
+            render();
+            alert("User berhasil disimpan!");
+        } catch(e) { alert("Gagal simpan user: " + e.message); }
+    });
+
+    render();
+}
+
+/* ===========================
+   GRAFIK LOGIC
+   =========================== */
+async function initGrafik() {
+    // Pastikan elemen canvas sudah ada (dari grafik.html)
+    const ctxRisk = qs('#chartRisk');
+    const ctxStatus = qs('#chartStatus');
+  
+    if (!ctxRisk || !ctxStatus) return; 
+    if (!window._k3db) return;
+  
+    try {
+      const docs = await window._k3db.listInspections(500); // Limit sample data
+      
+      // Hapus loading message jika ada
+      qs('#chartLoading')?.remove();
+  
+      // Data Processing
+      const riskCounts = { HIGH:0, MEDIUM:0, LOW:0, EXTREME:0 };
+      const statusCounts = { Open:0, Closed:0 };
+  
+      docs.forEach(d => {
+          let r = d.risk_level || 'LOW';
+          if (riskCounts[r] !== undefined) riskCounts[r]++;
+          else riskCounts['LOW']++; // fallback
+          
+          const s = d.status || 'Open';
+          if (statusCounts[s] !== undefined) statusCounts[s]++;
+          else statusCounts['Open']++;
+      });
+  
+      // Render Chart Risk (Bar)
+      if (window.chartInstanceRisk) window.chartInstanceRisk.destroy(); 
+      window.chartInstanceRisk = new Chart(ctxRisk, {
+          type: 'bar',
+          data: {
+              labels: ['LOW', 'MEDIUM', 'HIGH', 'EXTREME'],
+              datasets: [{
+                  label: 'Jumlah Temuan',
+                  data: [riskCounts.LOW, riskCounts.MEDIUM, riskCounts.HIGH, riskCounts.EXTREME],
+                  backgroundColor: ['#198754', '#ffc107', '#fd7e14', '#dc3545'],
+                  borderWidth: 1
+              }]
+          },
+          options: { responsive: true, plugins: { legend: {display:false} } }
+      });
+  
+      // Render Chart Status (Doughnut)
+      if (window.chartInstanceStatus) window.chartInstanceStatus.destroy();
+      window.chartInstanceStatus = new Chart(ctxStatus, {
+          type: 'doughnut',
+          data: {
+              labels: ['Open', 'Closed'],
+              datasets: [{
+                  data: [statusCounts.Open, statusCounts.Closed],
+                  backgroundColor: ['#dc3545', '#198754']
+              }]
+          },
+          options: { responsive: true }
+      });
+  
+    } catch (e) {
+      console.error("Grafik Error:", e);
+      const container = qs('#chartContainer');
+      if(container) container.innerHTML = `<div class="alert alert-danger">Gagal memuat grafik: ${e.message}</div>`;
+    }
+}
+
+/* ===========================
+   SETTINGS LOGIC
+   =========================== */
+function initSettings() {
+    // Tombol Sync Normal
+    qs('#btnSyncNowSettings')?.addEventListener('click', () => {
+        qs('#btnSync').click(); // Trigger tombol sync di header
+    });
+
+    // TOMBOL: Force Push
+    qs('#btnForcePush')?.addEventListener('click', async () => {
+        if(!confirm("Kirim ulang SEMUA data lokal ke server? Gunakan ini jika data server kosong.")) return;
+        
+        const btn = qs('#btnForcePush');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Resetting...';
+        
+        try {
+            // 1. Reset status synced jadi false semua
+            const count = await window._k3db.resetSyncStatus();
+            
+            // 2. Lakukan Sync
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Uploading ${count} items...`;
+            const stats = await window._k3db.sync();
+            
+            alert(`Sukses! ${stats.pushed} data berhasil dikirim ulang ke server.`);
+        } catch(e) {
+            alert("Gagal: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    });
+    
+    // Hapus Data
+    qs('#btnClearAll')?.addEventListener('click', async () => {
+        if(!confirm("PERINGATAN: Hapus semua data di HP ini? Data yang belum sync akan HILANG PERMANEN.")) return;
+        await window._k3db.db.destroy();
+        alert("Database lokal dihapus. Halaman akan dimuat ulang.");
+        location.reload();
+    });
+}
+
 // Global Export PDF
 window.exportPDF = async (id) => {
     try {
@@ -380,7 +574,7 @@ window.exportPDF = async (id) => {
     } catch(e) { alert("PDF Error: "+e.message); }
 };
 
-// Sync Handler
+// Sync Handler Header
 qs('#btnSync')?.addEventListener('click', async () => {
     const btn = qs('#btnSync');
     btn.disabled = true;
@@ -397,7 +591,3 @@ qs('#btnSync')?.addEventListener('click', async () => {
         btn.innerHTML = orig;
     }
 });
-
-function initUsers(){} // Placeholder
-function initSettings(){} // Placeholder
-function initGrafik(){} // Placeholder: gunakan kode grafik sebelumnya jika perlu
