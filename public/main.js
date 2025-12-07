@@ -1,23 +1,68 @@
 // public/main.js — FINAL FIXED VERSION
 
 /* =========================================
-   MINERBASAFE MAIN CONTROLLER
+   1. UTILS & HELPER
    ========================================= */
-
-// --- UTILS ---
 const qs = (s) => document.querySelector(s);
 const qsa = (s) => document.querySelectorAll(s);
+
 const getUser = () => {
     try {
         let user = JSON.parse(localStorage.getItem('currentUser') || 'null');
-        if (!user) return null;
         return user;
     } catch (e) { return null; }
 };
+
 const formatDate = (d) => d ? new Date(d).toLocaleString('id-ID', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '-';
 
 /* =========================================
-   SISTEM LOGIN & OTENTIKASI (New)
+   2. NAVIGATION LOGIC (Fungsi yang Hilang)
+   ========================================= */
+function initNavigation() {
+    const sidebar = qs('#sidebar');
+    const overlay = qs('#sidebarOverlay');
+    const btnToggle = qs('#toggleSidebar');
+    const btnClose = qs('#btnCloseSidebar');
+
+    function openMenu() {
+        if(sidebar) sidebar.classList.add('show');
+        if(overlay) overlay.classList.add('show');
+    }
+
+    function closeMenu() {
+        if(sidebar) sidebar.classList.remove('show');
+        if(overlay) overlay.classList.remove('show');
+    }
+
+    if(btnToggle) btnToggle.addEventListener('click', openMenu);
+    if(btnClose) btnClose.addEventListener('click', closeMenu);
+    if(overlay) overlay.addEventListener('click', closeMenu);
+
+    qsa('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth < 992) closeMenu();
+        });
+    });
+
+    // Network Status Listener
+    function updateOnlineStatus() {
+        const dot = qs('#onlineIndicator');
+        const text = qs('#syncStatusText');
+        if (!dot || !text) return;
+
+        if(navigator.onLine) {
+            dot.classList.add('online'); text.textContent = "Online";
+        } else {
+            dot.classList.remove('online'); text.textContent = "Offline";
+        }
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+}
+
+/* =========================================
+   3. SYSTEM LOGIN & AUTH (Baru)
    ========================================= */
 
 // Cek apakah user sudah login?
@@ -34,12 +79,15 @@ function checkAuth() {
     }
 }
 
+/* =========================================
+   4. DOM CONTENT LOADED (Entry Point)
+   ========================================= */
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Jalankan Navigasi & Cek Login
+    // Jalankan Navigasi & Cek Login
     initNavigation(); 
     checkAuth();
 
-    // 2. Logic Tombol Login
+    // Logic Tombol Login
     const formLogin = document.getElementById('formLogin');
     if(formLogin) {
         formLogin.addEventListener('submit', async (e) => {
@@ -48,6 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const p = document.getElementById('loginPass').value;
             const btn = formLogin.querySelector('button');
             const origText = btn.innerHTML;
+
+            console.log("Login attempt:", u, p);
 
             // BACKDOOR ADMIN (PENTING: Gunakan ini untuk login pertama kali!)
             if(u === 'admin' && p === 'admin123') {
@@ -73,13 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.innerHTML = origText; btn.disabled = false;
                 }
             } catch(err) {
+                console.error(err);
                 alert("Username tidak ditemukan.");
                 btn.innerHTML = origText; btn.disabled = false;
             }
         });
     }
 
-    // 3. Tambahkan Tombol Logout di Sidebar (Otomatis)
+    // Tambahkan Tombol Logout di Sidebar (Otomatis)
     const sidebar = document.querySelector('.sidebar .flex-grow-1');
     if(sidebar && !document.getElementById('btnLogout')) {
         const logoutLink = document.createElement('a');
@@ -97,6 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebar.appendChild(logoutLink);
     }
 });
+
+// --- SETELAH KODE INI ADALAH window.onPageLoaded dst... BIARKAN YANG DI BAWAH TETAP ADA ---
 
 // --- ROUTER HOOK ---
 window.onPageLoaded = function(page) {
