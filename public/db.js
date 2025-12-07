@@ -24,110 +24,60 @@ if (db && typeof db.createIndex === 'function') {
 const _k3db = {
     db: db,
 
-    // --- INSPECTIONS ---
-    async saveInspection(doc, attachments = []) {
-        if(!db) throw new Error("Database error");
-        
-        if (!doc._id) {
-            doc._id = `insp_${Date.now()}_${Math.floor(Math.random()*1000)}`;
-            doc.created_at = new Date().toISOString();
-        }
-        doc.type = 'inspection';
-        doc.synced = false; 
-        doc.deleted = false;
+    /* =========================================
+   UPDATE saveInspection di db.js
+   ========================================= */
+async saveInspection(doc, attachments = []) {
+    if(!db) throw new Error("Database error");
+    
+    // 1. Setup ID & Timestamp
+    if (!doc._id) {
+        doc._id = `insp_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+        doc.created_at = new Date().toISOString();
+    }
+    doc.type = 'inspection';
+    doc.synced = false; 
+    doc.deleted = false;
 
-        try {
-            const existing = await db.get(doc._id);
-            doc._rev = existing._rev;
-        } catch(e) {}
+    // 2. Cek Revisi (Jika edit data lama)
+    try {
+        const existing = await db.get(doc._id);
+        doc._rev = existing._rev;
+    } catch(e) {}
 
-        let res = await db.put(doc);
+    // 3. Simpan Dokumen Utama (Metadata)
+    let res = await db.put(doc);
+    console.log("📝 Metadata tersimpan:", res.id);
 
-        if (attachments.length > 0) {
-            const latest = await db.get(doc._id);
-            let rev = latest._rev;
-            // Simpan nama file foto agar bisa di-load via URL server nanti
-            // (Opsional, tapi membantu)
-            // doc.foto_list = attachments.map((_, i) => `foto_${i+1}.jpg`);
+    // 4. Simpan Attachments (Looping Aman)
+    if (attachments.length > 0) {
+        for (let i = 0; i < attachments.length; i++) {
+            const file = attachments[i];
             
-           // Loop File Object (Binary)
-for (let i = 0; i < attachments.length; i++) {
-    const file = attachments[i]; // Ini sekarang adalah File Object asli
-    
-    const attRes = await db.putAttachment(
-        doc._id, 
-        `foto_${i+1}.jpg`, // Nama file di database
-        rev, 
-        file,              // SIMPAN BINARY LANGSUNG (PENTING!)
-        file.type          // Tipe Mime (image/jpeg)
-    );
-    rev = attRes.rev;
-}
-            res = { ...res, rev: rev };
+            // PENTING: Ambil dokumen terbaru dulu untuk mendapatkan _rev paling update
+            // Ini mencegah error "409 Conflict"
+            const currentDoc = await db.get(doc._id);
+            
+            console.log(`🖼️ Uploading foto ${i+1}/${attachments.length}...`);
+            
+            await db.putAttachment(
+                doc._id, 
+                `foto_${i+1}.jpg`, // Nama file di DB
+                currentDoc._rev,   // Gunakan _rev TERBARU
+                file,              // File Object (Binary)
+                file.type || 'image/jpeg' // Fallback type jika kosong
+            );
         }
-        return res;
-    },
-
-    async getInspection(id) {
-        return await db.get(id, { attachments: true, binary: true });
-    },
-
-    async listInspections(limit = 1000) {
-        if (!db) return [];
-        try {
-            const all = await db.allDocs({include_docs: true, descending: true});
-            return all.rows
-                .map(r => r.doc)
-                .filter(d => d.type === 'inspection' && !d.deleted)
-                .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
-                .slice(0, limit);
-        } catch(e) { return []; }
-    },
-
-    async softDelete(id) {
-        const doc = await db.get(id);
-        doc.deleted = true;
-        doc.synced = false;
-        return await db.put(doc);
-    },
-
-    // --- USERS ---
-    async saveUser(user) {
-        user._id = user._id || `user_${user.username}`;
-        user.type = 'user';
-        user.synced = false;
-        try {
-            const existing = await db.get(user._id);
-            user._rev = existing._rev;
-        } catch(e) {}
-        return await db.put(user);
-    },
-
-    async listUsers() {
-        const all = await db.allDocs({include_docs: true});
-        return all.rows.map(r => r.doc).filter(d => d.type === 'user' && !d.deleted);
-    },
+    }
     
-    async deleteUser(id) {
-        const doc = await db.get(id);
-        doc.deleted = true; 
-        return await db.put(doc);
-    },
-    
-    async resetSyncStatus() {
-        // Kode reset sync (sama seperti sebelumnya)
-        const all = await db.allDocs({include_docs: true});
-        let count = 0;
-        for (const row of all.rows) {
-            const doc = row.doc;
-            if (!doc.deleted && (doc.type === 'inspection' || doc.type === 'user')) {
-                doc.synced = false;
-                await db.put(doc);
-                count++;
-            }
-        }
-        return count;
-    },
+    // Tandai agar sync engine tahu ada perubahan
+    // (Opsional, tapi praktik bagus)
+    const finalDoc = await db.get(doc._id);
+    finalDoc.synced = false;
+    await db.put(finalDoc);
+
+    return res;
+},
 
     // --- SYNC ENGINE (UPDATED) ---
     async sync() {

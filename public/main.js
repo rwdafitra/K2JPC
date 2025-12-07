@@ -297,45 +297,61 @@ function initInput(user) {
             return;
         }
 
-        const btn = form.querySelector('button[type="submit"]');
-        const origText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
-        btn.disabled = true;
+      const btn = form.querySelector('button[type="submit"]');
+const origText = btn.innerHTML;
+btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+btn.disabled = true;
 
-        const doc = {
-            inspector: user.name,
-            inspector_id: user.username,
-            tanggal: qs('#f_tanggal').value,
-            shift: qs('#f_shift').value,
-            lokasi: qs('#f_lokasi').value,
-            perusahaan: qs('#f_perusahaan').value,
-            cuaca: qs('#f_cuaca').value,
-            uraian: qs('#f_uraian').value,
-            kode_bahaya: qs('#f_kode_bahaya').value,
-            severity: parseInt(qs('#f_sev').value),
-            probability: parseInt(qs('#f_prob').value),
-            risk_score: parseInt(qs('#f_risk_score').value),
-            risk_level: qs('#f_risk_level').value,
-            rekomendasi: qs('#f_rekomendasi').value,
-            hirarki: qs('#f_hirarki').value,
-            pic: qs('#f_pic').value,
-            due_date: qs('#f_duedate').value,
-            status: 'Open',
-            created_at: new Date().toISOString()
-        };
+// 1. Ambil File dari Input
+const fileInput = qs('#f_foto');
+const files = fileInput.files; 
+const attachments = [];
 
-      // Ambil file mentah langsung dari input
-const files = qs('#f_foto').files; 
-const attachments = Array.from(files); // Konversi FileList ke Array biasa
+// 2. Konversi FileList ke Array untuk diproses db.js
+if (files && files.length > 0) {
+    console.log(`📸 Ditemukan ${files.length} foto untuk diupload.`);
+    for (let i = 0; i < files.length; i++) {
+        attachments.push(files[i]);
+    }
+} else {
+    console.log("⚠️ Tidak ada foto yang dipilih.");
+}
 
-        try {
-            await window._k3db.saveInspection(doc, attachments);
-            alert("Data berhasil disimpan!");
-            router.navigateTo('dashboard');
-        } catch(err) {
-            alert("Gagal simpan: " + err.message);
-            btn.disabled = false; btn.innerHTML = origText;
-        }
+// 3. Buat Object Dokumen
+const doc = {
+    // ... (field inspector, tanggal, shift, dll TETAP SAMA seperti kodemu sebelumnya) ...
+    inspector: user.name,
+    inspector_id: user.username,
+    tanggal: qs('#f_tanggal').value,
+    shift: qs('#f_shift').value,
+    lokasi: qs('#f_lokasi').value,
+    perusahaan: qs('#f_perusahaan').value,
+    cuaca: qs('#f_cuaca').value,
+    uraian: qs('#f_uraian').value,
+    kode_bahaya: qs('#f_kode_bahaya').value,
+    severity: parseInt(qs('#f_sev').value),
+    probability: parseInt(qs('#f_prob').value),
+    risk_score: parseInt(qs('#f_risk_score').value),
+    risk_level: qs('#f_risk_level').value,
+    rekomendasi: qs('#f_rekomendasi').value,
+    hirarki: qs('#f_hirarki').value,
+    pic: qs('#f_pic').value,
+    due_date: qs('#f_duedate').value,
+    status: 'Open',
+    created_at: new Date().toISOString()
+};
+
+try {
+    // Kirim ke Database
+    await window._k3db.saveInspection(doc, attachments);
+    
+    alert("✅ Data & Foto Berhasil Disimpan!");
+    router.navigateTo('dashboard');
+} catch(err) {
+    console.error(err); // Lihat error di console
+    alert("❌ Gagal simpan: " + err.message);
+    btn.disabled = false; btn.innerHTML = origText;
+}
     });
 }
 
