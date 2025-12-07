@@ -324,12 +324,9 @@ function initInput(user) {
             created_at: new Date().toISOString()
         };
 
-        const files = Array.from(qs('#f_foto').files);
-        const attachments = await Promise.all(files.map(f => new Promise(resolve => {
-            const r = new FileReader();
-            r.onload = ev => resolve({ blob: ev.target.result.split(',')[1], type: f.type });
-            r.readAsDataURL(f);
-        })));
+      // Ambil file mentah langsung dari input
+const files = qs('#f_foto').files; 
+const attachments = Array.from(files); // Konversi FileList ke Array biasa
 
         try {
             await window._k3db.saveInspection(doc, attachments);

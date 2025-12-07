@@ -50,13 +50,19 @@ const _k3db = {
             // (Opsional, tapi membantu)
             // doc.foto_list = attachments.map((_, i) => `foto_${i+1}.jpg`);
             
-            for (let i = 0; i < attachments.length; i++) {
-                const att = attachments[i];
-                const attRes = await db.putAttachment(
-                    doc._id, `foto_${i+1}.jpg`, rev, att.blob, att.type
-                );
-                rev = attRes.rev;
-            }
+           // Loop File Object (Binary)
+for (let i = 0; i < attachments.length; i++) {
+    const file = attachments[i]; // Ini sekarang adalah File Object asli
+    
+    const attRes = await db.putAttachment(
+        doc._id, 
+        `foto_${i+1}.jpg`, // Nama file di database
+        rev, 
+        file,              // SIMPAN BINARY LANGSUNG (PENTING!)
+        file.type          // Tipe Mime (image/jpeg)
+    );
+    rev = attRes.rev;
+}
             res = { ...res, rev: rev };
         }
         return res;
