@@ -644,3 +644,41 @@ if(syncBtn) {
         }
     });
 }
+
+// --- TAMBAHAN DI BAGIAN PALING BAWAH public/main.js ---
+
+// Fungsi global untuk export semua data
+window.exportAllToPdf = async () => {
+    if (!confirm('Ekspor semua inspeksi yang tersimpan? (Akan mengunduh banyak file)')) return;
+    
+    const btn = document.querySelector('#btnExportAll');
+    const originalText = btn ? btn.innerHTML : '';
+    if(btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+    }
+
+    try {
+        const docs = await window._k3db.listInspections();
+        if(docs.length === 0) {
+            alert("Tidak ada data untuk diekspor.");
+            return;
+        }
+
+        // Loop dan download satu per satu
+        for (const doc of docs) {
+            // Beri jeda 500ms agar browser tidak hang
+            await new Promise(r => setTimeout(r, 500));
+            // Gunakan fungsi exportPDF yang sudah ada di atas
+            await window.exportPDF(doc._id);
+        }
+        alert("Selesai mengekspor semua data.");
+    } catch (e) {
+        alert('Gagal ekspor: ' + e.message);
+    } finally {
+        if(btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+};

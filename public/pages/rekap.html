@@ -30,18 +30,3 @@
   </div>
 </div>
 
-<script>
-  // Simple export all -> loop through docs and call exportPDF (caveat: may prompt multiple saves)
-  async function exportAllToPdf() {
-    if (!confirm('Ekspor semua inspeksi yang tersimpan (akan membuka beberapa file PDF). Lanjutkan?')) return;
-    try {
-      const docs = await window._k3db.listInspections();
-      for (const doc of docs) {
-        // gunakan fungsi exportPDF yang ada di main.js
-        await window.exportPDF(doc._id, `${doc.lokasi || 'Inspeksi'}-${doc.tanggal_inspeksi || ''}`);
-      }
-    } catch (e) {
-      alert('Gagal ekspor semua: ' + e.message);
-    }
-  }
-</script>
