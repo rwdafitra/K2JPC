@@ -66,6 +66,28 @@
 </head>
 
 <body>
+<div id="loginOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0F2C59; z-index:9999; display:flex; justify-content:center; align-items:center;">
+    <div class="card p-4 shadow-lg border-0" style="width:90%; max-width:400px; border-radius:15px;">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold text-primary">MINERBA<span class="text-warning">SAFE</span></h2>
+            <p class="text-muted small">Sistem Inspeksi Terpadu</p>
+        </div>
+        <form id="formLogin">
+            <div class="mb-3">
+                <label class="form-label small fw-bold text-muted">Username</label>
+                <input type="text" id="loginUser" class="form-control form-control-lg" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label small fw-bold text-muted">Password</label>
+                <input type="password" id="loginPass" class="form-control form-control-lg" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm">MASUK APLIKASI</button>
+        </form>
+        <div class="mt-4 text-center">
+            <small class="text-muted fst-italic">Versi Enterprise v1.0</small>
+        </div>
+    </div>
+</div>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
   <nav class="sidebar" id="sidebar">

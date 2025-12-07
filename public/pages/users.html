@@ -6,29 +6,36 @@
   <div class="row">
     <div class="col-md-4">
       <div class="card p-3">
-        <form id="userForm" class="row g-2">
-          <div class="col-12">
-            <label class="form-label small">Username</label>
-            <input type="text" class="form-control" id="f_uname" required />
-          </div>
-          <div class="col-12">
-            <label class="form-label small">Nama Lengkap</label>
-            <input type="text" class="form-control" id="f_name" required />
-          </div>
-          <div class="col-12">
-            <label class="form-label small">Role / Tingkatan</label>
-            <select id="f_role" class="form-select" required>
-              <option value="Inspector">Inspector</option>
-              <option value="Supervisor">Supervisor</option>
-              <option value="Manager">Manager</option>
-              <option value="Admin">Admin</option>
-            </select>
-          </div>
-          <div class="col-12 text-end">
-            <button type="submit" class="btn btn-primary btn-sm">Simpan User</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('userForm').reset(); document.getElementById('f_uname').disabled=false;">Reset</button>
-          </div>
-        </form>
+       <form id="userForm" class="row g-2">
+  <div class="col-12">
+    <label class="form-label small fw-bold">Username (ID Login)</label>
+    <input type="text" class="form-control" id="f_uname" required placeholder="Contoh: ktt_site" />
+  </div>
+  
+  <div class="col-12">
+    <label class="form-label small fw-bold">Password</label>
+    <input type="password" class="form-control" id="f_pass" required placeholder="Minimal 4 karakter" />
+  </div>
+
+  <div class="col-12">
+    <label class="form-label small fw-bold">Nama Lengkap</label>
+    <input type="text" class="form-control" id="f_name" required />
+  </div>
+  
+  <div class="col-12">
+    <label class="form-label small fw-bold">Role / Jabatan</label>
+    <select id="f_role" class="form-select" required>
+      <option value="Inspector">Inspector (Pengawas)</option>
+      <option value="HSE">HSE (Safety Officer)</option>
+      <option value="KTT">KTT (Kepala Teknik)</option>
+      <option value="Admin">Admin IT</option>
+    </select>
+  </div>
+
+  <div class="col-12 text-end mt-3">
+    <button type="submit" class="btn btn-primary w-100 fw-bold">BUAT USER</button>
+  </div>
+</form>
       </div>
     </div>
 
